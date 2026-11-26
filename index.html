@@ -606,6 +606,9 @@
         100%{ transform:translateY(5px) scale(.92); filter:grayscale(1) brightness(.62); opacity:.78; }
       }
       #scr-battle .mini.dmg-hit{ animation:dmgShake .5s ease !important; box-shadow:0 0 0 3px var(--danger), 0 0 16px rgba(198,47,59,.8); z-index:5; }
+      /* ゲスト側の演出再演用：ブロックしたカードを金色に一瞬光らせる */
+      @keyframes blkFlash{ 0%{ transform:scale(1); } 35%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
+      #scr-battle .mini.fx-block-flash{ animation:blkFlash .45s ease !important; box-shadow:0 0 0 3px #ffd75e, 0 0 18px rgba(255,215,94,.9); z-index:5; }
       #scr-battle .mini.dmg-break{ animation:dmgBreak .62s ease forwards !important; box-shadow:0 0 0 3px var(--danger), 0 0 16px rgba(198,47,59,.85); z-index:5; }
       .mini.dmg-break::after{
         content:""; position:absolute; inset:0; z-index:3; pointer-events:none;
@@ -5974,6 +5977,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       // ダメージリアクション：攻撃が当たったカードを1回だけ揺らして赤く光らせ、受けたパワー分の数字を浮かばせる。
       // 破壊されるカードはヒビが入って砕けるように沈み、その後に既存の墓地フライ演出へつなぐ。点滅の繰り返しはしない。
       function damageReaction(hits){
+        netRec({ k: "damage", hits: hits.map(function(h){ return { sideKey: h.sideKey, kind: h.kind, uid: h.uid, dmg: h.dmg, dies: !!h.dies }; }) });
         return new Promise(function(resolve){
           if (!hits.length || reducedMotion() || !S.G){ resolve(); return; }
           let pending = 0, finished = false;
@@ -6123,8 +6127,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         tx.textContent = "";
         sb.textContent = sub || "";
         el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
-        // オンライン対戦：コールアウトはゲスト側にも送って同じ演出を出す
-        if (S.gameMode === "online" && NET.isHost()) NET.send({ t: "callout", kind: kind, sub: sub || "", opts: opts || null });
+        // オンライン対戦：コールアウトはイベントとして記録し、次の状態スナップショットと一緒にゲストへ送る（ゲスト側で順番に再演する）
+        if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: kind, sub: sub || "" }); NET.queueState(); }
         if (calloutTimer) clearTimeout(calloutTimer);
         if (calloutChainTimer) clearTimeout(calloutChainTimer);
         calloutTimer = setTimeout(function(){ el.classList.remove("show"); }, (opts && opts.dur) || 1150);
@@ -6370,6 +6374,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       }
       function animateDraws(sideKey, count){
+        netRec({ k: "draw", side: sideKey, n: count });
         return new Promise(function(resolve){
           if (!count || reducedMotion() || !S.G){ resolve(); return; }
           const prefix = sideKey === "P" ? "my" : "cpu";
@@ -6662,10 +6667,27 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         let idxs;
         if (isHuman(sideKey)){
           idxs = await fxMulti(reason || "手札を捨てる", "捨てるカードを" + n + "枚選んでね。", side.hand.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; }), n, sideKey);
-        } else {
+        } else if (S.cpuLevel === "novice") {
           const pool = side.hand.map(function(h, i){ return i; });
           idxs = [];
           for (let i = 0; i < n; i++){ const j = Math.floor(Math.random() * pool.length); idxs.push(pool.splice(j, 1)[0]); }
+        } else {
+          // CPUの捨て札選び（凡人・達人）：価値の低いものから捨てる。
+          // 完全ランダムだと、表向きマリョクがまだ無い序盤に色の起点カード
+          // （オーブ等のマリョク種別）まで捨ててしまい、そのまま何も出せなくなる。
+          const hasFaceMz = side.maryoku.some(function(m){ return m.faceUp; });
+          const scored = side.hand.map(function(h, i){
+            const c = CARD[h.name];
+            let v = 0;
+            if (isMaryokuCard(c)) v += hasFaceMz ? 30 : 100; // 起点カードは最優先で残す
+            if (c.type === "I") v += 20 + (c.power || 0) / 1000;
+            else if (isHaikeiCard(c)) v += 15;
+            else if (isMahouCard(c)) v += 10;
+            if (side.hand.filter(function(x){ return x.name === h.name; }).length > 1) v -= 8; // 同名の余りは捨てやすい
+            return { i: i, v: v };
+          });
+          scored.sort(function(a, b){ return a.v - b.v; });
+          idxs = scored.slice(0, n).map(function(s){ return s.i; });
         }
         idxs.sort(function(a, b){ return b - a; });
         const names = [];
@@ -7376,7 +7398,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         G.mode = "busy"; renderBattle();
         await ensureViewer(k, "ターン開始です");
         if (G.over) return;
-        showCallout("turnPlayer");
+        // オンライン対戦ではホスト画面基準のバナーにする（ゲスト側では再演時に自分基準へ反転する）
+        showCallout(S.gameMode === "online" ? (k === "P" ? "turnPlayer" : "turnEnemy") : "turnPlayer");
         side.field.forEach(function(f){ f.sleeping = false; });
         side.guardians.forEach(function(g){ g.sleeping = false; }); // ガーディアンもターン開始時に起きる（アンナ・パブロワで寝かされた場合）
         side.field.forEach(function(f){ if (f.faceDown){ f.faceDown = false; log("「" + f.name + "」は表向きに戻った。", "sys"); } });
@@ -7496,6 +7519,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               if (c.type !== "I" && !isMahouCard(c) && !isHaikeiCard(c)) return;
               const u = canUseCard(C, c);
               if (!u.ok && u.colorOk && u.needLevel === miNow.levelSum + 1) needMore = true;
+              // 色の起点（表向きマリョク）がまだ1枚も無い序盤は、上の条件だけだと
+              // 「色OK」が永遠に成立せず、オーブ等を引くまで何も置けないままターンが終わる。
+              // 将来の表向きマリョクで色が満たされる前提で、レベルがあと1で届くカードが
+              // 手札にあれば、先に裏向きで置いて魔力レベルを積んでおく（人間の序盤の動き）。
+              if (!u.ok && miNow.faceColors.length === 0 && u.needLevel <= miNow.levelSum + 1) needMore = true;
             });
             const noviceWaste = S.cpuLevel === "novice" && Math.random() < 0.2; // 見習い：不要な裏向き配置をすることがある
             if (needMore || noviceWaste){
@@ -7851,6 +7879,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           }
           blockers = battleBlockers;
           showCallout("block");
+          netRec({ k: "block", side: defKey, list: blockers.map(function(b){ return { kind: b.kind, uid: b.uid }; }) });
           let sum = 0;
           blockers.forEach(function(b){ if (b.kind === "ijin"){ const bf = DEF.field.find(function(f){ return f.uid === b.uid; }); if (bf) sum += blkPower(defKey, bf); } });
           const fleetSave = G.fleetSeq === G.turnSeq && G.fleetSide === atkKey; // フリート：このターンのアタッカーは破壊されない
@@ -8235,6 +8264,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         log("⚔ " + whoName(atkKey) + "のバトル！ " + chosen.map(function(f){ return "「"+f.name+"」"; }).join("、") + " で攻撃！", atkKey === "P" ? "win" : "lose");
         // 「攻撃」コールアウトは攻撃宣言と同時に出す（CPUの攻撃と同じタイミングに揃える）
         attackCallout(chosen);
+        netRec({ k: "attack", side: atkKey, uids: chosen.map(function(f){ return f.uid; }) });
         renderBattle(); await wait(700);
         // アタッカーになったとき／寝たときの能力
         for (const atk of chosen.slice()){
@@ -9116,7 +9146,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
          描画のたびに「公開情報だけに絞った状態スナップショット」をゲストへ送る。
          ゲストの操作はコマンドとしてホストへ送られ、ホストが実行する。
          効果の選択（fxChoose / fxMulti）は選択肢ごとゲストへ転送し、結果を待つ。
-         手札・山札の順番・ガーディアンの中身・裏向きマリョクは相手へ送らない。 */
+         手札・山札の順番・ガーディアンの中身・裏向きマリョクは相手へ送らない。
+         第2段階：スナップショットに「直前に起きた出来事のイベント列」を添え、
+         ゲストはイベントを短縮版で順番に再演してから最新状態に合わせる。 */
       const NET_PREFIX = "ijinden-duel-";
       function netGenCode(){
         const chars = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -9263,6 +9295,180 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         S.G = NG;
       }
 
+      /* ---- イベント同期（オンライン対戦・第2段階） ----
+         ホストは対戦中に起きた出来事をイベントとして記録し、状態スナップショットに添えてゲストへ送る。
+         ゲストは受け取ったイベントを（短縮版で）順番に再演してから、最新の状態に画面を合わせる。
+         コールアウト／ドロー／ダメージは発生箇所で netRec により記録し、
+         カードの配置と墓地への移動はスナップショットの差分から自動で検出する。 */
+      function netRec(ev){
+        if (S.gameMode !== "online" || !NET.isHost()) return;
+        NET.evBuf.push(ev);
+        if (NET.evBuf.length > 40) NET.evBuf.splice(0, NET.evBuf.length - 40); // 溜まりすぎ防止
+      }
+      // 前回送信したスナップショットとの差分から「配置」と「墓地への移動」イベントを作る
+      function netDiffEvents(prev, next){
+        const evs = [];
+        if (!prev || !next) return evs;
+        const ZONES = [["field", "ijin"], ["haikei", "haikei"], ["maryoku", "maryoku"], ["guardians", "guardian"]];
+        ["P", "C"].forEach(function(sk){
+          const a = prev[sk], b = next[sk];
+          if (!a || !b) return;
+          const prevLoc = {};
+          [["hand", "hand"], ["field", "ijin"], ["haikei", "haikei"], ["maryoku", "maryoku"], ["guardians", "guardian"], ["grave", "grave"], ["deck", "deck"]].forEach(function(pr){
+            (a[pr[0]] || []).forEach(function(c){ prevLoc[c.uid] = pr[1]; });
+          });
+          ZONES.forEach(function(pr){
+            const before = {};
+            (a[pr[0]] || []).forEach(function(c){ before[c.uid] = 1; });
+            (b[pr[0]] || []).forEach(function(c){
+              if (!before[c.uid]) evs.push({ k: "place", side: sk, zone: pr[1], uid: c.uid, name: c.name || null, faceUp: pr[0] === "maryoku" ? !!c.faceUp : true, from: prevLoc[c.uid] || "hand" });
+            });
+          });
+          const graveBefore = {};
+          (a.grave || []).forEach(function(c){ graveBefore[c.uid] = 1; });
+          (b.grave || []).forEach(function(c){
+            if (!graveBefore[c.uid]) evs.push({ k: "grave", side: sk, uid: c.uid, name: c.name || null, from: prevLoc[c.uid] || "deck" });
+          });
+        });
+        return evs;
+      }
+      // ホスト視点のイベントをゲスト視点（自分が下側P）へ変換する
+      function netSwapEv(e){
+        const c = Object.assign({}, e);
+        if (c.side) c.side = netSwapKey(c.side);
+        if (c.k === "damage") c.hits = (c.hits || []).map(function(h){ return { sideKey: netSwapKey(h.sideKey), kind: h.kind, uid: h.uid, dmg: h.dmg, dies: !!h.dies }; });
+        if (c.k === "callout"){
+          if (c.kind === "turnPlayer") c.kind = "turnEnemy";
+          else if (c.kind === "turnEnemy") c.kind = "turnPlayer";
+        }
+        return c;
+      }
+      // 再演が長くなりすぎないよう、古い演出（ダメージとコールアウト以外）を間引く
+      function netTrimEv(evs){
+        if (evs.length <= 8) return evs;
+        const out = evs.slice();
+        let i = 0;
+        while (out.length > 8 && i < out.length){
+          if (out[i].k === "damage" || out[i].k === "callout") i++;
+          else out.splice(i, 1);
+        }
+        return out.slice(-14);
+      }
+      // ゲスト側：届いたスナップショットを順番に処理する。再演は最後の1件分だけ行い、溜まっている間は状態の適用を優先して遅れを取り戻す
+      function netGuestPump(){
+        if (NET._fxBusy) return;
+        NET._fxBusy = true;
+        (async function(){
+          try {
+            let pendingEv = [];
+            while (NET.stateQueue.length){
+              if (NET.over){ NET.stateQueue = []; pendingEv = []; break; }
+              const item = NET.stateQueue.shift();
+              if (item.ev && item.ev.length) pendingEv = pendingEv.concat(item.ev);
+              const isLast = NET.stateQueue.length === 0;
+              if (isLast && pendingEv.length && !NET.over){
+                const evs = netTrimEv(pendingEv); pendingEv = [];
+                await guestReplayEv(evs);
+              }
+              if (!item._applied){ netApplyState(item.G); renderBattle(); }
+            }
+          } catch(e){}
+          NET._fxBusy = false;
+          if (NET.stateQueue.length) netGuestPump();
+        })();
+      }
+      async function guestReplayEv(evs){
+        for (const raw of evs){
+          if (!S.G || S.G.over || NET.over || !NET.started) return;
+          const e = netSwapEv(raw);
+          try { await Promise.race([guestFxOne(e), wait(1600)]); } catch(err){}
+        }
+      }
+      function guestFxOne(e){
+        if (e.k === "callout"){ showCallout(e.kind, e.sub || "", { dur: 520 }); return wait(460); }
+        if (e.k === "draw") return guestFxDraw(e.side, e.n);
+        if (e.k === "place") return guestFxPlace(e);
+        if (e.k === "attack") return guestFxAttack(e);
+        if (e.k === "block") return guestFxBlock(e);
+        if (e.k === "damage") return damageReaction(e.hits || []);
+        if (e.k === "grave") return guestFxGrave(e);
+        return Promise.resolve();
+      }
+      // ドロー再演：山札の束から手札側へ裏面カードが飛ぶ（最大3枚・短縮版）
+      function guestFxDraw(side, n){
+        return new Promise(function(resolve){
+          if (!n || reducedMotion() || !S.G){ resolve(); return; }
+          const fromEl = $((side === "P" ? "my" : "cpu") + "-deck-pile");
+          const toEl = side === "P" ? $("my-hand") : $("box-cpu");
+          if (!fromEl || !toEl){ resolve(); return; }
+          const fr = fromEl.getBoundingClientRect(), tr = toEl.getBoundingClientRect();
+          if (!fr.width || !tr.width){ resolve(); return; }
+          const to = { left: tr.left + tr.width / 2 - 23, top: tr.top + Math.min(tr.height / 2, 56) - 30, width: 46, height: 60 };
+          const cnt = Math.min(n, 3), ps = [];
+          for (let i = 0; i < cnt; i++) ps.push(wait(i * 80).then(function(){ return flyGhost(fr, to, null, 300); }));
+          Promise.all(ps).then(function(){ resolve(); });
+          setTimeout(resolve, 1000);
+        });
+      }
+      // 配置再演：手札・墓地・山札のあった場所から対象ゾーンへカードが飛ぶ
+      function guestFxPlace(e){
+        const to = zonePoint(e.side, e.zone);
+        if (!to) return Promise.resolve();
+        let from = null;
+        if (e.from === "grave") from = rectOf($(e.side === "P" ? "my-grave-pile" : "cpu-grave-pile"));
+        else if (e.from === "deck") from = rectOf($(e.side === "P" ? "my-deck-pile" : "cpu-deck-pile"));
+        else if (e.from !== "hand"){
+          const scr = $("scr-battle");
+          const el = scr ? scr.querySelector('[data-uid="' + e.uid + '"]') : null;
+          from = rectOf(el);
+        }
+        if (!from) from = sidePoint(e.side);
+        if (!from) return Promise.resolve();
+        const img = (e.zone === "maryoku" && !e.faceUp) || e.zone === "guardian" || !e.name ? null : cardImg(e.name);
+        return flyGhost(from, to, img, 330);
+      }
+      // 攻撃宣言再演：アタッカーが相手側へ少し飛び出して戻る（短縮版）
+      function guestFxAttack(e){
+        const zone = sideZoneEl(e.side, "ijin");
+        if (!zone || !S.G) return Promise.resolve();
+        const dy = e.side === "P" ? -58 : 58;
+        return Promise.all((e.uids || []).map(function(uid){
+          const el = zone.querySelector('[data-uid="' + uid + '"]');
+          const r = rectOf(el);
+          if (!r) return Promise.resolve();
+          const inst = (S.G[e.side].field || []).find(function(f){ return f.uid === uid; });
+          const img = inst && !inst.faceDown ? cardImg(inst.name) : null;
+          const to = { left: r.left, top: r.top + dy, width: r.width, height: r.height };
+          return flyGhost(r, to, img, 250).then(function(){ return flyGhost(to, r, img, 190); });
+        }));
+      }
+      // ブロック再演：ブロッカーを金色に一瞬光らせる
+      function guestFxBlock(e){
+        const els = [];
+        (e.list || []).forEach(function(b){
+          const zone = sideZoneEl(e.side, b.kind === "guardian" ? "guardian" : "ijin");
+          const el = zone ? zone.querySelector('[data-uid="' + b.uid + '"]') : null;
+          if (el){ el.classList.add("fx-block-flash"); els.push(el); }
+        });
+        if (!els.length) return Promise.resolve();
+        return wait(430).then(function(){ els.forEach(function(el){ el.classList.remove("fx-block-flash"); }); });
+      }
+      // 墓地への移動再演：場・手札などにあった場所から墓地の山へカードが飛ぶ
+      function guestFxGrave(e){
+        const scr = $("scr-battle");
+        const el = scr ? scr.querySelector('[data-uid="' + e.uid + '"]') : null;
+        let from = rectOf(el);
+        if (!from){
+          if (e.from === "hand") from = sidePoint(e.side);
+          else if (e.from === "deck") from = rectOf($(e.side === "P" ? "my-deck-pile" : "cpu-deck-pile"));
+          else from = zonePoint(e.side, e.from === "guardian" ? "guardian" : (e.from === "haikei" ? "haikei" : (e.from === "maryoku" ? "maryoku" : "ijin")));
+        }
+        const to = rectOf($(e.side === "P" ? "my-grave-pile" : "cpu-grave-pile"));
+        if (!from || !to) return Promise.resolve();
+        const img = (e.from === "guardian" || !e.name) ? null : cardImg(e.name);
+        return flyGhost(from, to, img, 330);
+      }
+
       const NET = {
         role: null, peer: null, conn: null, code: "",
         connected: false, started: false, over: false, _leaving: false, _retried: false,
@@ -9271,6 +9477,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         first: "host",
         promptSeq: 0, prompts: {},
         stateTimer: null, defTimer: null, _lastDefSig: "", pendingState: null,
+        evBuf: [], _prevSent: null, stateQueue: [], _fxBusy: false,
         isHost: function(){ return NET.role === "host"; },
         isGuest: function(){ return NET.role === "guest"; },
         send: function(obj){ if (NET.conn && NET.conn.open){ try { NET.conn.send(obj); } catch(e){} } },
@@ -9353,6 +9560,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.myDeck = null; NET.myColor = null; NET.myCounts = null;
           NET.foeDeck = null; NET.foeColor = null; NET.foeReady = false;
           NET.prompts = {}; NET.pendingState = null; NET._lastDefSig = "";
+          NET.evBuf = []; NET._prevSent = null; NET.stateQueue = []; NET._fxBusy = false;
           if (NET.stateTimer){ clearTimeout(NET.stateTimer); NET.stateTimer = null; }
           if (NET.defTimer){ clearTimeout(NET.defTimer); NET.defTimer = null; }
           S.gameMode = "cpu"; S.G = null;
@@ -9382,6 +9590,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const firstKey = NET.first === "host" ? "P" : "C";
           const matP = dominantColor(NET.myDeck, NET.myColor), matC = dominantColor(NET.foeDeck, NET.foeColor);
           NET.started = true; NET.over = false;
+          NET.evBuf = []; NET._prevSent = null; NET.stateQueue = [];
           startGame(NET.myDeck.slice(), NET.foeDeck.slice(), firstKey);
           NET.send({ t: "start", hostColor: NET.myColor, matP: matP, matC: matC });
           setPill("対戦中", "");
@@ -9433,7 +9642,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.stateTimer = setTimeout(function(){ NET.stateTimer = null; NET._sendState(); }, 90);
         },
         _sendState: function(){
-          if (NET.isHost() && S.G && NET.connected) NET.send({ t: "state", G: NET.serializeState() });
+          if (!NET.isHost() || !S.G || !NET.connected) return;
+          const st = NET.serializeState();
+          // イベント列：配置（差分）→ 記録済みイベント（コールアウト／ドロー／攻撃／ブロック／ダメージ）→ 墓地への移動（差分）の順
+          const diff = netDiffEvents(NET._prevSent, st);
+          NET._prevSent = st;
+          const ev = diff.filter(function(e){ return e.k === "place"; })
+            .concat(NET.evBuf, diff.filter(function(e){ return e.k === "grave"; }));
+          NET.evBuf = [];
+          NET.send({ t: "state", G: st, ev: ev });
         },
         /* ---- 防御の割り当て同期（ゲスト→ホスト） ---- */
         queueDefSync: function(){
@@ -9484,15 +9701,24 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             clearZCache();
             setPill("対戦中", "");
             show("scr-battle");
-            if (NET.pendingState){ const ps = NET.pendingState; NET.pendingState = null; netApplyState(ps); renderBattle(); }
+            if (NET.pendingState){
+              const ps = NET.pendingState; NET.pendingState = null;
+              netApplyState(ps.G); renderBattle();
+              if (ps.ev && ps.ev.length){ NET.stateQueue.push({ G: ps.G, ev: ps.ev, _applied: true }); netGuestPump(); }
+            }
             return;
           }
           if (msg.t === "state"){
             if (!NET.isGuest()) return;
-            if (!NET.started){ NET.pendingState = msg.G; return; }
+            if (!NET.started){
+              // 開始前に届いた分はイベントごと貯めておき、開始時にまとめて取り込む
+              const prevEv = NET.pendingState ? (NET.pendingState.ev || []) : [];
+              NET.pendingState = { G: msg.G, ev: prevEv.concat(msg.ev || []) };
+              return;
+            }
             if (NET.over) return;
-            netApplyState(msg.G);
-            renderBattle();
+            NET.stateQueue.push({ G: msg.G, ev: msg.ev || [] });
+            netGuestPump();
             return;
           }
           if (msg.t === "callout"){
