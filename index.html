@@ -1242,6 +1242,7 @@
           <div class="lobby-box" style="border-top:none; padding-top:2px; margin-top:2px;">
             <h3>あなたのデッキ</h3>
             <p class="sub" id="lobby-my-status">まだ選んでいない</p>
+            <p class="sub" id="lobby-deck-note" style="display:none; font-weight:700;"></p>
             <div id="lobby-saved-wrap">
               <button type="button" class="saved-pick-toggle" id="lobby-saved-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
               <div id="lobby-saved-list" style="display:none;"></div>
@@ -10203,6 +10204,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         } else {
           NET.foeReady = false; NET.foeDeck = null;
           NET.foeDeckName = null; NET.foeColorLabel = null;
+          NET.foeDeckErr = null; NET.deckAck = null; NET.deckErr = null;
+          NET.conn = null; // 死んだ接続を持ち続けると、相手の再入室をホストが弾いてしまう
           const lc = $("lobby-conn");
           if (lc) lc.innerHTML = "接続状態：<span class=\"bad\">切断されました</span>";
           renderLobby();
@@ -10220,11 +10223,25 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const fs = $("lobby-foe-status");
         if (fs) fs.textContent = NET.foeReady
           ? "準備OK" + (NET.foeDeckName ? "：「" + NET.foeDeckName + "」" : "") + "（" + (NET.foeColorLabel || NET.foeColor) + "デッキ）"
-          : "相手がデッキを選択中…";
+          : (NET.foeDeckErr ? "相手のデッキを受理できませんでした：" + NET.foeDeckErr : "相手がデッキを選択中…");
+        const dn = $("lobby-deck-note");
+        if (dn){
+          if (NET.isGuest() && NET.myDeck && NET.deckAck === "ng"){
+            dn.style.display = ""; dn.style.color = "var(--danger)";
+            dn.textContent = "相手にデッキが届きませんでした：" + (NET.deckErr || "理由不明") + "　デッキを選び直してください。";
+          } else if (NET.isGuest() && NET.myDeck && NET.deckAck === "wait" && NET.connected){
+            dn.style.display = ""; dn.style.color = "var(--gold)";
+            dn.textContent = "相手へデッキを送信中…（相手の確認待ち）";
+          } else {
+            dn.style.display = "none"; dn.textContent = "";
+          }
+        }
         const nx = $("lobby-next");
         if (nx){
           if (!NET.connected) nx.textContent = "接続中。相手とつながるまで待つ。";
+          else if (NET.isGuest() && NET.deckAck === "ng") nx.textContent = "次にすること：デッキを選び直す（届かなかった理由は上に表示）。";
           else if (!NET.myDeck) nx.textContent = "次にすること：自分のデッキを選ぶ（保存したデッキ、または色を選んで新しく作る）。";
+          else if (!NET.foeReady && NET.foeDeckErr) nx.textContent = "次にすること：相手のデッキに問題があります。相手が選び直すのを待つ。";
           else if (!NET.foeReady) nx.textContent = "次にすること：相手がデッキを選ぶのを待つ。自分のデッキは選び直せる。";
           else if (NET.isHost()) nx.textContent = "次にすること：先行・後攻を選んで「対戦スタート」を押す。";
           else nx.textContent = "次にすること：ホストが対戦を開始するのを待つ。";
@@ -10238,7 +10255,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const wrap = $("lobby-saved-wrap"), listEl = $("lobby-saved-list");
         if (!wrap || !listEl) return;
         const list = loadMyDecks();
-        if (!list.length){ wrap.style.display = "none"; return; }
+        if (!list.length){
+          // 保存デッキが無い端末では一覧ごと消すと「選べない理由」が分からないため、案内文を出す
+          wrap.style.display = "";
+          listEl.innerHTML = '<p class="sub" style="margin:8px 2px;">この端末には保存したデッキがありません。下の「色を選んで新しく作る」からデッキを組めます。</p>';
+          return;
+        }
         wrap.style.display = "";
         listEl.innerHTML = "";
         list.forEach(function(d){
@@ -10525,6 +10547,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         connected: false, started: false, over: false, _leaving: false, _retried: false,
         myDeck: null, myColor: null, myCounts: null, myDeckName: null, myColorLabel: null, myDeckId: null,
         foeDeck: null, foeColor: null, foeReady: false, foeDeckName: null, foeColorLabel: null,
+        deckAck: null, deckErr: null, foeDeckErr: null,
         first: "host",
         promptSeq: 0, prompts: {},
         stateTimer: null, defTimer: null, _lastDefSig: "", pendingState: null,
@@ -10553,7 +10576,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.peer = peer;
           peer.on("open", function(){ setOnlineStatus("wait", "接続待ち"); });
           peer.on("connection", function(conn){
-            if (NET.conn){ conn.on("open", function(){ try { conn.close(); } catch(e){} }); return; }
+            if (NET.conn && NET.conn.open){ conn.on("open", function(){ try { conn.close(); } catch(e){} }); return; }
+            // 前の接続が既に切れている場合は受け直す（ゲストがページを開き直して再入室できるように）
+            if (NET.conn){ try { NET.conn.close(); } catch(e){} NET.conn = null; }
             NET._bindConn(conn);
           });
           peer.on("error", function(err){ NET._peerError(err); });
@@ -10598,6 +10623,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             setPill("接続中", "");
             renderLobby();
             show("scr-lobby");
+            // 接続前に選んでいたデッキは相手に届いていないので、つながった時点で送り直す
+            NET.announceDeck();
           });
           conn.on("data", function(data){ netIceRecovered(); NET._onData(data); });
           conn.on("close", function(){ netLost(); });
@@ -10617,6 +10644,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.myDeckName = null; NET.myColorLabel = null; NET.myDeckId = null;
           NET.foeDeck = null; NET.foeColor = null; NET.foeReady = false;
           NET.foeDeckName = null; NET.foeColorLabel = null;
+          NET.deckAck = null; NET.deckErr = null; NET.foeDeckErr = null;
           NET.prompts = {}; NET.pendingState = null; NET._lastDefSig = "";
           NET.evBuf = []; NET._prevSent = null; NET.stateQueue = []; NET._fxBusy = false;
           if (NET.stateTimer){ clearTimeout(NET.stateTimer); NET.stateTimer = null; }
@@ -10636,9 +10664,18 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.myDeckId = id || null;
           NET.myCounts = {};
           names.forEach(function(n){ NET.myCounts[n] = (NET.myCounts[n] || 0) + 1; });
-          if (NET.isGuest()) NET.send({ t: "deck", color: color, names: names.slice(), name: NET.myDeckName, label: NET.myColorLabel });
-          else if (NET.isHost()) NET.send({ t: "host-deck", color: color, name: NET.myDeckName, label: NET.myColorLabel });
+          NET.deckAck = NET.isGuest() ? "wait" : null;
+          NET.deckErr = null;
+          NET.announceDeck();
           renderLobby();
+        },
+        /* 自分のデッキ情報を相手へ送る。ゲストは中身ごと、ホストは名前と色だけ
+           （ホストのデッキ中身は対戦開始まで相手に渡さない）。
+           接続が開いたタイミングでも呼び直し、接続前に選んだデッキが相手に届かない事故を防ぐ */
+        announceDeck: function(){
+          if (!NET.myDeck) return;
+          if (NET.isGuest()) NET.send({ t: "deck", color: NET.myColor, names: NET.myDeck.slice(), name: NET.myDeckName, label: NET.myColorLabel });
+          else if (NET.isHost()) NET.send({ t: "host-deck", color: NET.myColor, name: NET.myDeckName, label: NET.myColorLabel });
         },
         startOnlineBuild: function(color){
           S.buildCtx = "online"; S.buildTarget = "P"; S.buildColor = color;
@@ -10743,11 +10780,38 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (!msg || typeof msg !== "object") return;
           if (msg.t === "deck"){
             if (!NET.isHost()) return;
-            if (Array.isArray(msg.names) && msg.names.length >= 40 && COLORS.indexOf(msg.color) >= 0 && msg.names.every(function(n){ return !!CARD[n]; })){
-              NET.foeDeck = msg.names.slice(); NET.foeColor = msg.color; NET.foeReady = true;
-              NET.foeDeckName = msg.name || null; NET.foeColorLabel = msg.label || msg.color;
-              renderLobby();
+            // 受理できない場合は理由を付けてゲストへ返す（無言で捨てると両画面とも「選択中…」で固まる）
+            let reason = null;
+            if (!Array.isArray(msg.names) || msg.names.length < 40) reason = "デッキが40枚未満です（" + (Array.isArray(msg.names) ? msg.names.length : 0) + "枚）";
+            else if (COLORS.indexOf(msg.color) < 0) reason = "デッキの色が正しくありません";
+            else {
+              const badName = msg.names.find(function(n){ return !CARD[n]; });
+              if (badName) reason = "読み取れないカード名が含まれています：「" + badName + "」";
             }
+            if (reason){
+              NET.foeDeckErr = reason;
+              NET.send({ t: "deck-nack", reason: reason });
+              renderLobby();
+              return;
+            }
+            NET.foeDeck = msg.names.slice(); NET.foeColor = msg.color; NET.foeReady = true;
+            NET.foeDeckName = msg.name || null; NET.foeColorLabel = msg.label || msg.color;
+            NET.foeDeckErr = null;
+            NET.send({ t: "deck-ack" });
+            NET.announceDeck(); // ゲストが入り直した直後でも、ホストのデッキ名が相手に届くよう送り返す
+            renderLobby();
+            return;
+          }
+          if (msg.t === "deck-ack"){
+            if (!NET.isGuest()) return;
+            NET.deckAck = "ok"; NET.deckErr = null;
+            renderLobby();
+            return;
+          }
+          if (msg.t === "deck-nack"){
+            if (!NET.isGuest()) return;
+            NET.deckAck = "ng"; NET.deckErr = msg.reason || "相手に受理されませんでした";
+            renderLobby();
             return;
           }
           if (msg.t === "host-deck"){
