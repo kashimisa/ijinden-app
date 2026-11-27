@@ -143,6 +143,9 @@
       .filter-row{ display:flex; gap:6px; margin:12px 0 8px; flex-wrap:wrap; }
       .filter-row button{ border:1.5px solid var(--line); background:var(--panel); color:var(--ink2); border-radius:999px; padding:6px 13px; font-weight:700; font-size:.8rem; min-height:2.3rem; }
       .filter-row button.on{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+      .db-group-head{ display:flex; align-items:baseline; gap:8px; font-weight:900; font-size:.95rem; margin:16px 2px 8px; padding-bottom:5px; border-bottom:2px solid var(--line); }
+      .db-group-head:first-child{ margin-top:4px; }
+      .db-group-count{ font-size:.72rem; font-weight:700; color:var(--ink2); }
       .search-in{ width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); font-size:.95rem; margin-bottom:10px; }
       .card-row{
         display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line);
@@ -1000,10 +1003,11 @@
         </div>
         <input class="search-in" id="db-search" type="search" placeholder="カード名で検索…" />
         <div class="filter-row" id="db-filters">
-          <button data-f="all" class="on">全部</button>
-          <button data-f="I">イジン</button>
-          <button data-f="M">マリョク</button>
-          <button data-f="S">マホウ・他</button>
+          <button data-f="all" class="on">すべて</button>
+          <button data-f="イジン">イジン</button>
+          <button data-f="マホウ">マホウ</button>
+          <button data-f="ハイケイ">ハイケイ</button>
+          <button data-f="マリョク">マリョク</button>
         </div>
         <div id="db-list"></div>
         <button class="big-btn accent" id="btn-start-battle" disabled>このデッキで対戦開始！</button>
@@ -5525,6 +5529,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           // 2色カード（例：ヒエロスガモス青紫版）は、両方の色のプールに入る
           if (c.color === color || (c.color.length > 1 && c.color.indexOf(color) >= 0)) set.set(c.name, c);
         });
+        // purple_detail のみに収録されているカード（李成桂・クララ・バートン・渡辺崋山・
+        // マリ・キュリー・タウンゼント・ハリス・スピリットアウェイ・タイムディレイション・
+        // コーザリティ・浪士集う長屋）は APPDATA.pool に行がなく、おすすめ経由でも拾えないため、
+        // CARD 本体からも色で拾う。これがないと単色でもミックスでも構築一覧に出てこない。
+        Object.values(CARD).forEach(function(c){
+          if (!c || !c.color) return;
+          if (c.color === color || (c.color.length > 1 && c.color.indexOf(color) >= 0)) set.set(c.name, c);
+        });
         (APPDATA.recommended[color] || []).forEach(function(n){ if (CARD[n]) set.set(n, CARD[n]); });
         const arr = Array.from(set.values());
         arr.sort(function(x,y){
@@ -5931,9 +5943,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         }
         // list
         const list = $("db-list"); list.innerHTML = "";
-        poolForColors(bCols).forEach(function(c){
-          if (S.dbFilter !== "all" && c.type !== S.dbFilter) return;
-          if (S.dbSearch && c.name.indexOf(S.dbSearch) < 0) return;
+        // 種類タブは表示分類（classOf）で絞り込む。「マホウ・他」は内訳チップの数え方と同じくマホウに含める
+        function dbClass(c){ const cl = classOf(c); return cl === "マホウ・他" ? "マホウ" : cl; }
+        const visible = poolForColors(bCols).filter(function(c){
+          if (S.dbFilter !== "all" && dbClass(c) !== S.dbFilter) return false;
+          if (S.dbSearch && c.name.indexOf(S.dbSearch) < 0) return false;
+          return true;
+        });
+        function appendCard(c){
           const n = S.deckSel[c.name] || 0;
           const row = document.createElement("div");
           row.className = "card-row" + (n>0 ? " picked" : "");
@@ -5964,8 +5981,24 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             list.appendChild(t);
             row.querySelector(".detail-toggle").addEventListener("click", function(){ t.classList.toggle("on"); });
           }
-        });
-        if (!list.children.length) list.innerHTML = '<p style="color:var(--ink2); font-size:.85rem;">該当するカードがないよ。</p>';
+        }
+        if (S.dbFilter === "all"){
+          // 「すべて」表示では種類ごとに見出し（種類名＋種数）を付けて区切る。種類内の並びはプールの並び順のまま
+          const order = ["イジン","マホウ","ハイケイ","マリョク"];
+          const groups = {};
+          visible.forEach(function(c){ const cl = dbClass(c); (groups[cl] = groups[cl] || []).push(c); });
+          order.concat(Object.keys(groups).filter(function(k){ return order.indexOf(k) < 0; })).forEach(function(k){
+            if (!groups[k]) return;
+            const head = document.createElement("div");
+            head.className = "db-group-head";
+            head.innerHTML = k + '<span class="db-group-count">' + groups[k].length + '種</span>';
+            list.appendChild(head);
+            groups[k].forEach(appendCard);
+          });
+        } else {
+          visible.forEach(appendCard);
+        }
+        if (!visible.length) list.innerHTML = '<p style="color:var(--ink2); font-size:.85rem;">該当するカードがないよ。</p>';
       }
       $("db-filters").addEventListener("click", function(e){
         const b = e.target.closest("button"); if (!b) return;
