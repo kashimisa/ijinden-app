@@ -955,6 +955,15 @@
       .saved-deck-item:active{ border-color:var(--gold); }
       .saved-deck-item.is-draft{ opacity:.55; cursor:not-allowed; }
       .saved-deck-item.is-draft .go{ color:var(--ink2); }
+      /* 選択中の保存デッキ：金の枠と淡い金の地で「いま選んでいるデッキ」を明示する */
+      .saved-deck-item.sel{ border-color:var(--gold); background:rgba(217,171,60,.13); box-shadow:0 0 0 1px rgba(217,171,60,.45); }
+      .saved-deck-item.sel .go{ color:#ffd76e; }
+      /* ロビーの「次にすること」案内バー */
+      .lobby-next{
+        margin:10px 0 2px; padding:9px 12px; border-radius:10px;
+        background:rgba(217,171,60,.12); border:1px solid rgba(199,164,90,.5);
+        color:#ffd76e; font-weight:800; font-size:.88rem; line-height:1.55;
+      }
       .gundan-item .draft-badge{ display:inline-block; font-size:.62rem; font-weight:900; color:var(--gold); border:1.5px solid var(--gold); border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:2px; white-space:nowrap; }
       .gundan-item{
         display:flex; align-items:center; gap:10px;
@@ -1190,22 +1199,36 @@
         </div>
       </section>
 
-      <!-- ===== Screen: オンライン対戦の入口（部屋を作る／入る） ===== -->
+      <!-- ===== Screen: オンライン対戦の入口（最初に作る側／入る側を選び、選んだ側の操作だけを出す） ===== -->
       <section class="screen" id="scr-online">
         <div class="panel" style="margin-top:22px;">
           <h2 class="mincho">2人対戦（オンライン）</h2>
           <p class="sub">手札・ガーディアンは自分の画面にのみ表示される。</p>
-          <h3 class="gundan-new-title">部屋を作る（ホスト）</h3>
-          <button class="big-btn accent" id="btn-net-create" style="margin-top:6px;">部屋を作る</button>
-          <div id="net-code-box" style="display:none;">
-            <p class="sub" style="margin:12px 0 4px;">あいことば（相手に伝える）</p>
-            <div class="net-code" id="net-code">・・・</div>
+          <div id="net-step-choose">
+            <h3 class="gundan-new-title">どちらで入るか選ぶ</h3>
+            <button class="big-btn accent" id="btn-net-mode-create" style="margin-top:6px;">部屋を作る（相手を待つ側）</button>
+            <button class="big-btn" id="btn-net-mode-join" style="margin-top:8px;">部屋に入る（あいことばを聞いた側）</button>
+            <p class="sub" style="margin-top:10px;">部屋を作る側が あいことば を決めて相手に伝え、入る側がそれを入力すると接続される。</p>
           </div>
-          <h3 class="gundan-new-title">部屋に入る（ゲスト）</h3>
-          <input class="search-in" id="net-code-input" type="text" maxlength="3" placeholder="あいことば（ひらがな3文字）" autocomplete="off" autocapitalize="off" />
-          <button class="big-btn" id="btn-net-join" style="margin-top:8px;">部屋に入る</button>
+          <div id="net-step-create" style="display:none;">
+            <h3 class="gundan-new-title">部屋を作る</h3>
+            <button class="big-btn accent" id="btn-net-create" style="margin-top:6px;">部屋を作る</button>
+            <div id="net-code-box" style="display:none;">
+              <p class="sub" style="margin:12px 0 4px;">あいことば（相手に伝える）</p>
+              <div class="net-code" id="net-code">・・・</div>
+              <p class="sub">この あいことば を相手に伝える。相手が入力して部屋に入ると、自動でロビーに進む。</p>
+            </div>
+            <button class="ghost-btn" id="btn-net-back-create">選び直す</button>
+          </div>
+          <div id="net-step-join" style="display:none;">
+            <h3 class="gundan-new-title">部屋に入る</h3>
+            <p class="sub" style="margin-bottom:8px;">相手から聞いた あいことば（ひらがな3文字）を入力する。</p>
+            <input class="search-in" id="net-code-input" type="text" maxlength="3" placeholder="あいことば（ひらがな3文字）" autocomplete="off" autocapitalize="off" />
+            <button class="big-btn" id="btn-net-join" style="margin-top:8px;">部屋に入る</button>
+            <button class="ghost-btn" id="btn-net-back-join">選び直す</button>
+          </div>
           <p class="sub net-status-line" id="net-status" style="margin-top:14px;">接続状態：<span class="wait">未接続</span></p>
-          <p class="sub">※一部演出は相手側で簡略表示。切断時の再接続は未対応。</p>
+          <p class="sub">※一部演出は相手側で簡略表示。接続が一時的に切れても、自動で復帰を試みる。</p>
           <button class="ghost-btn" id="btn-online-back">タイトルへもどる</button>
         </div>
       </section>
@@ -1215,6 +1238,7 @@
         <div class="panel" style="margin-top:22px;">
           <h2 class="mincho">オンライン対戦ロビー</h2>
           <p class="sub net-status-line" id="lobby-conn">接続状態：<span class="wait">接続中…</span></p>
+          <p class="lobby-next" id="lobby-next">接続中。相手とつながるまで待つ。</p>
           <div class="lobby-box" style="border-top:none; padding-top:2px; margin-top:2px;">
             <h3>あなたのデッキ</h3>
             <p class="sub" id="lobby-my-status">まだ選んでいない</p>
@@ -10178,6 +10202,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           $("overlay-netlost").classList.add("on");
         } else {
           NET.foeReady = false; NET.foeDeck = null;
+          NET.foeDeckName = null; NET.foeColorLabel = null;
           const lc = $("lobby-conn");
           if (lc) lc.innerHTML = "接続状態：<span class=\"bad\">切断されました</span>";
           renderLobby();
@@ -10189,9 +10214,21 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           ? "<span class=\"ok\">接続済み</span>（あなたは" + (NET.isHost() ? "ホスト" : "ゲスト") + "）"
           : (NET.role ? "<span class=\"bad\">切断されました</span>" : "<span class=\"wait\">接続中…</span>"));
         const ms = $("lobby-my-status");
-        if (ms) ms.textContent = NET.myDeck ? "準備OK（" + NET.myColor + "デッキ・" + NET.myDeck.length + "枚）" : "まだ選んでいない";
+        if (ms) ms.textContent = NET.myDeck
+          ? "準備OK：" + (NET.myDeckName ? "「" + NET.myDeckName + "」" : "") + "（" + (NET.myColorLabel || NET.myColor) + "デッキ・" + NET.myDeck.length + "枚）"
+          : "まだ選んでいない";
         const fs = $("lobby-foe-status");
-        if (fs) fs.textContent = NET.foeReady ? "準備OK（" + NET.foeColor + "デッキ）" : "相手がデッキを選択中…";
+        if (fs) fs.textContent = NET.foeReady
+          ? "準備OK" + (NET.foeDeckName ? "：「" + NET.foeDeckName + "」" : "") + "（" + (NET.foeColorLabel || NET.foeColor) + "デッキ）"
+          : "相手がデッキを選択中…";
+        const nx = $("lobby-next");
+        if (nx){
+          if (!NET.connected) nx.textContent = "接続中。相手とつながるまで待つ。";
+          else if (!NET.myDeck) nx.textContent = "次にすること：自分のデッキを選ぶ（保存したデッキ、または色を選んで新しく作る）。";
+          else if (!NET.foeReady) nx.textContent = "次にすること：相手がデッキを選ぶのを待つ。自分のデッキは選び直せる。";
+          else if (NET.isHost()) nx.textContent = "次にすること：先行・後攻を選んで「対戦スタート」を押す。";
+          else nx.textContent = "次にすること：ホストが対戦を開始するのを待つ。";
+        }
         const hc = $("lobby-host-ctl"); if (hc) hc.style.display = NET.isHost() ? "" : "none";
         const gw = $("lobby-guest-wait"); if (gw) gw.style.display = NET.isGuest() ? "" : "none";
         const st = $("btn-net-start"); if (st) st.disabled = !(NET.isHost() && !!NET.myDeck && NET.foeReady);
@@ -10207,18 +10244,19 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         list.forEach(function(d){
           const dTotal = deckCountsTotal(d.cards);
           const isDraft = dTotal < 40;
+          const isSel = !isDraft && !!NET.myDeckId && d.id === NET.myDeckId;
           const b = document.createElement("button");
-          b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "");
+          b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "") + (isSel ? " sel" : "");
           b.innerHTML =
             deckDotsHtml(d) +
             '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚）' : dTotal + '枚') + '</span></span>' +
-            '<span class="go">' + (isDraft ? '枚数不足' : 'このデッキにする ›') + '</span>';
+            '<span class="go">' + (isDraft ? '枚数不足' : (isSel ? '選択中' : 'このデッキにする ›')) + '</span>';
           b.querySelector(".nm").textContent = d.name;
           if (isDraft){
             // 作成中（40枚未満）のデッキは対戦に使えないので選択不可にする
             b.disabled = true;
           } else {
-            b.addEventListener("click", function(){ NET.setMyDeck(deckCountsToNames(d.cards), d.color); });
+            b.addEventListener("click", function(){ NET.setMyDeck(deckCountsToNames(d.cards), d.color, d.name, deckColorLabel(d), d.id); });
           }
           listEl.appendChild(b);
         });
@@ -10485,8 +10523,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       const NET = {
         role: null, peer: null, conn: null, code: "",
         connected: false, started: false, over: false, _leaving: false, _retried: false,
-        myDeck: null, myColor: null, myCounts: null,
-        foeDeck: null, foeColor: null, foeReady: false,
+        myDeck: null, myColor: null, myCounts: null, myDeckName: null, myColorLabel: null, myDeckId: null,
+        foeDeck: null, foeColor: null, foeReady: false, foeDeckName: null, foeColorLabel: null,
         first: "host",
         promptSeq: 0, prompts: {},
         stateTimer: null, defTimer: null, _lastDefSig: "", pendingState: null,
@@ -10576,7 +10614,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (NET.peer){ try { NET.peer.destroy(); } catch(e){} NET.peer = null; }
           NET.role = null; NET.connected = false; NET.started = false; NET.over = false;
           NET.myDeck = null; NET.myColor = null; NET.myCounts = null;
+          NET.myDeckName = null; NET.myColorLabel = null; NET.myDeckId = null;
           NET.foeDeck = null; NET.foeColor = null; NET.foeReady = false;
+          NET.foeDeckName = null; NET.foeColorLabel = null;
           NET.prompts = {}; NET.pendingState = null; NET._lastDefSig = "";
           NET.evBuf = []; NET._prevSent = null; NET.stateQueue = []; NET._fxBusy = false;
           if (NET.stateTimer){ clearTimeout(NET.stateTimer); NET.stateTimer = null; }
@@ -10589,12 +10629,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET._leaving = false;
         },
         /* ---- デッキ選択 ---- */
-        setMyDeck: function(names, color){
+        setMyDeck: function(names, color, name, label, id){
           NET.myDeck = names.slice(); NET.myColor = color;
+          NET.myDeckName = name || null;
+          NET.myColorLabel = label || color;
+          NET.myDeckId = id || null;
           NET.myCounts = {};
           names.forEach(function(n){ NET.myCounts[n] = (NET.myCounts[n] || 0) + 1; });
-          if (NET.isGuest()) NET.send({ t: "deck", color: color, names: names.slice() });
-          else if (NET.isHost()) NET.send({ t: "host-deck", color: color });
+          if (NET.isGuest()) NET.send({ t: "deck", color: color, names: names.slice(), name: NET.myDeckName, label: NET.myColorLabel });
+          else if (NET.isHost()) NET.send({ t: "host-deck", color: color, name: NET.myDeckName, label: NET.myColorLabel });
           renderLobby();
         },
         startOnlineBuild: function(color){
@@ -10702,13 +10745,18 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             if (!NET.isHost()) return;
             if (Array.isArray(msg.names) && msg.names.length >= 40 && COLORS.indexOf(msg.color) >= 0 && msg.names.every(function(n){ return !!CARD[n]; })){
               NET.foeDeck = msg.names.slice(); NET.foeColor = msg.color; NET.foeReady = true;
+              NET.foeDeckName = msg.name || null; NET.foeColorLabel = msg.label || msg.color;
               renderLobby();
             }
             return;
           }
           if (msg.t === "host-deck"){
             if (!NET.isGuest()) return;
-            if (COLORS.indexOf(msg.color) >= 0){ NET.foeColor = msg.color; NET.foeReady = true; renderLobby(); }
+            if (COLORS.indexOf(msg.color) >= 0){
+              NET.foeColor = msg.color; NET.foeReady = true;
+              NET.foeDeckName = msg.name || null; NET.foeColorLabel = msg.label || msg.color;
+              renderLobby();
+            }
             return;
           }
           if (msg.t === "start"){
@@ -10812,7 +10860,18 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       };
 
       /* ---- オンライン対戦まわりのボタン配線 ---- */
-      $("btn-to-online").addEventListener("click", function(){ S.gameMode = "online"; show("scr-online"); });
+      /* 入口画面は「作る側／入る側」を先に選ばせ、選んだ側の操作だけを表示する */
+      function netShowStep(which){
+        const c = $("net-step-choose"), cr = $("net-step-create"), j = $("net-step-join");
+        if (c) c.style.display = which === "choose" ? "" : "none";
+        if (cr) cr.style.display = which === "create" ? "" : "none";
+        if (j) j.style.display = which === "join" ? "" : "none";
+      }
+      $("btn-to-online").addEventListener("click", function(){ S.gameMode = "online"; netShowStep("choose"); show("scr-online"); });
+      $("btn-net-mode-create").addEventListener("click", function(){ netShowStep("create"); });
+      $("btn-net-mode-join").addEventListener("click", function(){ netShowStep("join"); });
+      $("btn-net-back-create").addEventListener("click", function(){ NET.disconnect(); netShowStep("choose"); });
+      $("btn-net-back-join").addEventListener("click", function(){ NET.disconnect(); netShowStep("choose"); });
       $("btn-online-back").addEventListener("click", function(){ NET.disconnect(); show("scr-mode"); });
       $("btn-lobby-leave").addEventListener("click", function(){ NET.disconnect(); show("scr-mode"); });
       $("btn-netlost-title").addEventListener("click", function(){
