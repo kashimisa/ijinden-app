@@ -327,28 +327,50 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-      /* 対戦開始イントロ：暗い霧の中に「Dive to イジンデン」のロゴが浮かび、霧が晴れて後ろの盤面が現れてからターンバナーへつなぐ */
+      /* 対戦開始イントロ：墨の闇の中に「Dive to イジンデン」のロゴが浮かび、水墨画の霧（横霞）が晴れて後ろの盤面が現れてからターンバナーへつなぐ。
+         霧は墨の濃淡で引いた横霞の帯：SVGの乱流変形（#sumiEdge1/2）で輪郭に筆の掠れと滲みを付け、晴れる時は墨の帯が左右に割れて開く */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
         transition:opacity .35s ease, visibility 0s linear .35s;
       }
       .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .3s ease; }
-      .di-bg{ position:absolute; inset:0; background:radial-gradient(ellipse at 50% 42%, #16223e 0%, #0a1122 52%, #030409 100%); opacity:1; transition:opacity 1.45s ease; }
+      .di-svgdefs{ position:absolute; width:0; height:0; overflow:hidden; }
+      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 1.45s ease;
+        background:
+          radial-gradient(ellipse at 50% 40%, rgba(88,92,102,.5) 0%, rgba(30,31,36,0) 56%),
+          linear-gradient(180deg, #0e0f12 0%, #17181d 46%, #060708 100%); }
       .dive-intro.clear .di-bg{ opacity:0; }
-      .di-fog{ position:absolute; border-radius:50%; filter:blur(26px); pointer-events:none;
-        background:radial-gradient(ellipse at center, rgba(186,202,232,.55) 0%, rgba(186,202,232,.22) 45%, rgba(186,202,232,0) 72%);
-        opacity:.85; transition:opacity 1.45s ease, transform 1.45s ease; }
-      .di-fog.f1{ width:130vw; height:46vh; left:-18vw; top:2%; animation:diDrift1 7s ease-in-out infinite alternate; }
-      .di-fog.f2{ width:120vw; height:52vh; right:-22vw; top:26%; animation:diDrift2 9s ease-in-out infinite alternate; }
-      .di-fog.f3{ width:140vw; height:48vh; left:-24vw; bottom:-6%; animation:diDrift1 8s ease-in-out infinite alternate-reverse; }
-      .di-fog.f4{ width:90vw; height:34vh; left:16vw; top:44%; opacity:.6; animation:diDrift2 6.5s ease-in-out infinite alternate-reverse; }
-      @keyframes diDrift1{ from{ margin-left:-4vw; } to{ margin-left:5vw; } }
-      @keyframes diDrift2{ from{ margin-left:4vw; } to{ margin-left:-5vw; } }
+      .di-fog{ position:absolute; left:-14vw; width:128vw; pointer-events:none; opacity:.92;
+        transition:opacity 1.45s ease, transform 1.45s cubic-bezier(.3,.6,.3,1); }
+      /* 横霞の帯：淡い墨の洗い＋濃い墨の帯を重ね、細い横線の重なりで筆の筋を出す */
+      .di-fog.f1{ height:48vh; top:-6%; filter:url(#sumiEdge1); animation:diDrift1 8s ease-in-out infinite alternate;
+        background:
+          repeating-linear-gradient(180deg, rgba(230,233,238,.028) 0 2px, rgba(230,233,238,0) 2px 6px),
+          linear-gradient(180deg, rgba(8,8,10,0) 4%, rgba(8,8,10,.55) 20%, rgba(8,8,10,0) 38%, rgba(8,8,10,.34) 82%, rgba(8,8,10,0) 96%),
+          linear-gradient(180deg, rgba(198,203,212,0) 8%, rgba(198,203,212,.34) 30%, rgba(150,156,166,.12) 44%, rgba(198,203,212,0) 58%, rgba(172,178,188,.26) 78%, rgba(198,203,212,0) 94%); }
+      .di-fog.f2{ height:44vh; top:26%; filter:url(#sumiEdge2); animation:diDrift2 9.5s ease-in-out infinite alternate;
+        background:
+          repeating-linear-gradient(180deg, rgba(230,233,238,.024) 0 2px, rgba(230,233,238,0) 2px 7px),
+          linear-gradient(180deg, rgba(8,8,10,0) 10%, rgba(8,8,10,.48) 34%, rgba(8,8,10,0) 52%, rgba(8,8,10,.3) 88%, rgba(8,8,10,0) 98%),
+          linear-gradient(180deg, rgba(198,203,212,0) 4%, rgba(198,203,212,.3) 24%, rgba(150,156,166,.1) 42%, rgba(198,203,212,0) 60%, rgba(172,178,188,.22) 80%, rgba(198,203,212,0) 96%); }
+      .di-fog.f3{ height:50vh; bottom:-8%; filter:url(#sumiEdge1); animation:diDrift1 8.5s ease-in-out infinite alternate-reverse;
+        background:
+          repeating-linear-gradient(180deg, rgba(230,233,238,.028) 0 2px, rgba(230,233,238,0) 2px 6px),
+          linear-gradient(180deg, rgba(8,8,10,0) 2%, rgba(8,8,10,.4) 22%, rgba(8,8,10,0) 40%, rgba(8,8,10,.58) 76%, rgba(8,8,10,0) 94%),
+          linear-gradient(180deg, rgba(198,203,212,0) 6%, rgba(198,203,212,.26) 26%, rgba(150,156,166,.1) 46%, rgba(198,203,212,0) 62%, rgba(172,178,188,.3) 84%, rgba(198,203,212,0) 97%); }
+      .di-fog.f4{ height:32vh; top:44%; opacity:.7; filter:url(#sumiEdge2); animation:diDrift2 7s ease-in-out infinite alternate-reverse;
+        background:
+          repeating-linear-gradient(180deg, rgba(230,233,238,.02) 0 2px, rgba(230,233,238,0) 2px 7px),
+          linear-gradient(180deg, rgba(8,8,10,0) 8%, rgba(8,8,10,.42) 40%, rgba(8,8,10,0) 66%),
+          linear-gradient(180deg, rgba(198,203,212,0) 10%, rgba(198,203,212,.3) 38%, rgba(150,156,166,.08) 58%, rgba(198,203,212,0) 86%); }
+      @keyframes diDrift1{ from{ margin-left:-3vw; } to{ margin-left:3.5vw; } }
+      @keyframes diDrift2{ from{ margin-left:3vw; } to{ margin-left:-3.5vw; } }
+      /* 晴れる時：墨の帯が左右に割れて開き、滲むように消える */
       .dive-intro.clear .di-fog{ opacity:0; animation:none; }
-      .dive-intro.clear .di-fog.f1{ transform:translateX(-16vw); }
-      .dive-intro.clear .di-fog.f2{ transform:translateX(16vw); }
-      .dive-intro.clear .di-fog.f3{ transform:translateY(10vh); }
-      .dive-intro.clear .di-fog.f4{ transform:translateY(-8vh) scale(1.25); }
+      .dive-intro.clear .di-fog.f1{ transform:translateX(-17vw) scaleY(1.12); }
+      .dive-intro.clear .di-fog.f2{ transform:translateX(17vw) scaleY(1.12); }
+      .dive-intro.clear .di-fog.f3{ transform:translateX(-13vw) translateY(6vh) scaleY(1.15); }
+      .dive-intro.clear .di-fog.f4{ transform:translateX(13vw) translateY(-5vh) scaleY(1.2); }
       .di-center{ position:absolute; left:50%; top:43%; transform:translate(-50%,-50%); width:min(94vw,660px); text-align:center; }
       .di-glow{ position:absolute; left:50%; top:50%; width:135%; padding-top:62%; transform:translate(-50%,-50%);
         background:radial-gradient(ellipse at center, rgba(255,247,224,.96) 0%, rgba(252,233,183,.6) 42%, rgba(252,233,183,0) 72%);
@@ -1125,8 +1147,20 @@
           <div class="callout-sub" id="callout-sub"></div>
         </div>
 
-        <!-- 対戦開始イントロ：暗い霧→ダイブロゴ→霧が晴れて盤面→ターンバナー（タップでスキップ可） -->
+        <!-- 対戦開始イントロ：墨の闇→ダイブロゴ→水墨画の霧（横霞）が割れて晴れ、盤面→ターンバナー（タップでスキップ可） -->
         <div class="dive-intro" id="dive-intro" aria-hidden="true">
+          <svg class="di-svgdefs" aria-hidden="true" focusable="false">
+            <defs>
+              <filter id="sumiEdge1" x="-20%" y="-90%" width="140%" height="280%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.011 0.085" numOctaves="2" seed="7" result="n" />
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="52" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+              <filter id="sumiEdge2" x="-20%" y="-90%" width="140%" height="280%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.009 0.07" numOctaves="2" seed="23" result="n" />
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="68" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+          </svg>
           <div class="di-bg"></div>
           <div class="di-fog f1"></div>
           <div class="di-fog f2"></div>
