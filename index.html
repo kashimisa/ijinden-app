@@ -66,24 +66,85 @@
       #scr-mode .dive-btn{ display:block; width:100%; margin:22px 0 2px; }
       /* 軍団編成ボタン：Diveボタンと同じ pill 画像ボタン。少し小さくして格の違いを出す */
       #scr-mode .gundan-btn{ display:block; width:88%; margin:16px auto 2px; }
-      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。約2秒・タップでスキップ可） ---------- */
-      #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .45s ease, visibility 0s linear .45s; }
-      #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .1s ease; }
-      #dive-overlay.out{ opacity:0 !important; }
-      #dive-overlay .dive-glow{ position:absolute; inset:0; background:radial-gradient(circle at var(--dx,50%) var(--dy,50%), rgba(255,240,200,.9) 0%, rgba(238,205,120,.45) 24%, rgba(238,205,120,0) 58%); opacity:0; }
-      #dive-overlay.go .dive-glow{ animation:diveGlow 2s ease forwards; }
-      @keyframes diveGlow{ 0%{ opacity:0; } 30%{ opacity:.65; } 62%{ opacity:.9; } 100%{ opacity:1; } }
-      #dive-overlay .dive-ring{ position:absolute; left:var(--dx,50%); top:var(--dy,50%); width:130px; height:130px; margin:-65px 0 0 -65px; border-radius:50%; border:3px solid rgba(238,205,122,.95); box-shadow:0 0 26px rgba(238,205,122,.85), inset 0 0 26px rgba(238,205,122,.55); opacity:0; }
-      #dive-overlay.go .dive-ring{ animation:diveRing 1.45s cubic-bezier(.25,.6,.3,1) forwards; }
-      #dive-overlay.go .dive-ring.r2{ animation-delay:.22s; }
-      @keyframes diveRing{ 0%{ transform:scale(.3); opacity:0; } 16%{ opacity:1; } 100%{ transform:scale(10); opacity:0; } }
-      #dive-overlay .dive-flood{ position:absolute; inset:0; background:radial-gradient(circle at var(--dx,50%) var(--dy,50%), #fffdf4 0%, #fdf3d3 34%, #f7e7bb 62%, #f3e2ae 100%); opacity:0; }
-      #dive-overlay.go .dive-flood{ animation:diveFlood 2s ease forwards; }
-      @keyframes diveFlood{ 0%{ opacity:0; } 52%{ opacity:0; } 82%{ opacity:.96; } 100%{ opacity:1; } }
-      .wrap.diving{ transform-origin:var(--dx,50%) var(--dy,50%); animation:diveZoom 1.6s cubic-bezier(.55,.02,.8,.4) forwards; will-change:transform, filter; }
-      @keyframes diveZoom{ from{ transform:scale(1); filter:brightness(1); } to{ transform:scale(2.9); filter:brightness(1.4) saturate(1.12); } }
-      #scr-color1.dive-in{ animation:diveIn .55s ease both; }
-      @keyframes diveIn{ from{ opacity:0; transform:scale(1.045); } to{ opacity:1; transform:scale(1); } }
+      /* ---------- ダイブ遷移（タイトル→デッキ選択の入口だけ。合計2.5秒・タップでスキップ可） ----------
+         「戦いが始まる」演出ではなく、イジンデンの世界に入って軍団を選ぶ場所へ移るための遷移。
+         ①0〜0.3秒：ボタンがわずかに沈み、画面が少し暗くなる
+         ②0.3〜1.25秒：墨が数か所から不規則ににじみ広がり（SVGノイズで縁を歪ませる）、
+           白〜薄グレーの霧が4層・異なる速度とぼかしで画面を覆う。円形拡大・均一フェード・
+           金のリング・ホワイトアウトは使わない
+         ③約1.25秒（霧が最も濃い時点）：裏側でデッキ選択画面へ切り替えるので素の画面は見えない
+         ④1.25〜2.5秒：霧が晴れ、パネル本体→5色タイル（1色ずつ約70ms差）→保存デッキ欄・次へボタンの順に現れる
+         ⑤終了後：画面の端にごく薄い霧だけがゆっくり漂い続ける（.rest。操作は妨げない）
+         霧の素材は対戦開始イントロと同じ水墨素材（assets/dive_fogbg.jpg）を反転して白い霧として使う */
+      #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden; transition:opacity .4s ease, visibility 0s linear .4s; }
+      #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .12s ease; }
+      #dive-overlay.rest{ visibility:visible; opacity:1; }
+      #dive-overlay.bye{ opacity:0 !important; transition:opacity .3s ease !important; }
+      /* 押した感触：ボタンがわずかに沈んで少し暗くなる（遷移中だけ付くクラス） */
+      #btn-mode-cpu.pressed{ transform:translateY(3px) scale(.965); filter:drop-shadow(0 3px 6px rgba(0,0,0,.6)) brightness(.82); }
+      /* ① 画面全体が自然に暗くなる */
+      #dive-overlay .dv-dim{ position:absolute; inset:0; background:#04060d; opacity:0; pointer-events:none; }
+      #dive-overlay.go .dv-dim{ animation:dvDimIn .32s ease-out both; }
+      @keyframes dvDimIn{ from{ opacity:0; } to{ opacity:.55; } }
+      #dive-overlay.clear .dv-dim{ animation:dvDimOut 1s ease .05s both; }
+      @keyframes dvDimOut{ from{ opacity:.55; } to{ opacity:0; } }
+      /* ② 墨のにじみ：円形グラデーションを SVG の feTurbulence＋feDisplacementMap で歪ませ、
+         水に落とした墨のように不規則な縁で広がる。位置・大きさ・タイミングは3か所でずらす */
+      #dive-overlay .dv-ink{ position:absolute; width:78vmax; height:78vmax; border-radius:50%; opacity:0; pointer-events:none;
+        background:radial-gradient(circle at 50% 50%, rgba(9,11,19,.95) 0%, rgba(9,11,19,.78) 42%, rgba(9,11,19,.34) 62%, rgba(9,11,19,0) 74%);
+        filter:url(#dv-inkwarp); }
+      #dive-overlay .dv-ink.k1{ left:-27vmax; top:-16vmax; --ko:.85; --kdl:.30s; --kin:.95s; }
+      #dive-overlay .dv-ink.k2{ right:-31vmax; top:14vh; --ko:.8; --kdl:.44s; --kin:1s; }
+      #dive-overlay .dv-ink.k3{ left:4vw; bottom:-36vmax; --ko:.82; --kdl:.58s; --kin:.95s; }
+      #dive-overlay.go .dv-ink{ animation:dvInkIn var(--kin,.95s) cubic-bezier(.25,.7,.3,1) var(--kdl,.3s) both; }
+      @keyframes dvInkIn{ from{ opacity:0; scale:.3; rotate:-4deg; } to{ opacity:var(--ko,.85); scale:1.12; rotate:2deg; } }
+      #dive-overlay.clear .dv-ink{ animation:dvInkOut .8s ease both; }
+      @keyframes dvInkOut{ from{ opacity:var(--ko,.85); } to{ opacity:0; } }
+      /* ② 霧の層：水墨素材を反転して白〜薄グレーの霧にする。奥の層ほど大きく・ぼかし強く・ゆっくり、
+         手前ほど速く動かして奥行きを出す。静止時の個性（拡大・反転）は transform に、
+         寄せ／晴れの動きは translate・scale プロパティに分ける（対戦イントロの .di-fog と同じ方式）。
+         縁は放射マスクで霞ませるので長方形の継ぎ目は見えない */
+      #dive-overlay .dv-fog{ position:absolute; inset:-14%; opacity:0; pointer-events:none;
+        background-image:url("assets/dive_fogbg.jpg"); background-size:cover; background-repeat:no-repeat;
+        -webkit-mask-image:radial-gradient(120% 95% at 50% 50%, #000 55%, transparent 96%);
+        mask-image:radial-gradient(120% 95% at 50% 50%, #000 55%, transparent 96%);
+        will-change:translate, scale, opacity, filter; }
+      #dive-overlay .dv-fog.f1{ background-position:28% 36%; transform:scale(1.55); --bd:11px; --fo:.92; --dl:.30s; --fin:1s; --ix:-1.5%; --ox:-6%; --odl:.22s; --fout:1.05s; }
+      #dive-overlay .dv-fog.f2{ background-position:72% 30%; transform:scaleX(-1) scale(1.35); --bd:8px; --fo:.94; --dl:.40s; --fin:.95s; --ix:1.5%; --ox:6%; --odl:.14s; --fout:1.1s; }
+      #dive-overlay .dv-fog.f3{ background-position:40% 68%; transform:scale(1.18); --bd:5px; --fo:.96; --dl:.52s; --fin:.9s; --ix:-2%; --ox:-8%; --odl:.06s; --fout:1.15s; }
+      #dive-overlay .dv-fog.f4{ background-position:62% 55%; transform:scaleX(-1) scale(1.05); --bd:3px; --fo:1; --dl:.64s; --fin:.85s; --ix:2%; --ox:7%; --odl:0s; --fout:1.2s; }
+      #dive-overlay.go .dv-fog{ animation:dvFogIn var(--fin,.95s) cubic-bezier(.35,.6,.4,1) var(--dl,.3s) both; }
+      @keyframes dvFogIn{ from{ opacity:0; translate:0 2.5%; filter:invert(1) blur(calc(var(--bd,6px) + 6px)) brightness(1.03); } to{ opacity:var(--fo,.95); translate:var(--ix,0%) 0; filter:invert(1) blur(var(--bd,6px)) brightness(1.03); } }
+      /* ④ 晴れる時は寄せた方向へさらに流れながら膨らみ・ぼかしが増して消える（手前の層から先に開く） */
+      #dive-overlay.clear .dv-fog{ animation:dvFogOut var(--fout,1.1s) cubic-bezier(.4,.1,.3,1) var(--odl,0s) both; }
+      @keyframes dvFogOut{ from{ opacity:var(--fo,.95); translate:var(--ix,0%) 0; filter:invert(1) blur(var(--bd,6px)) brightness(1.03); } to{ opacity:0; translate:var(--ox,4%) -2%; scale:1.07; filter:invert(1) blur(calc(var(--bd,6px) + 9px)) brightness(1.05); } }
+      /* ⑤ 終了後に残る薄い霧：画面の上下の端だけにごく薄く、異なる周期でゆっくり漂い続ける */
+      #dive-overlay .dv-wisp{ position:absolute; width:130%; height:55%; pointer-events:none; opacity:0; transition:opacity 1.8s ease .2s;
+        background-image:url("assets/dive_fogbg.jpg"); background-size:cover; background-repeat:no-repeat; filter:invert(1) blur(9px); }
+      #dive-overlay .dv-wisp.w1{ left:-32%; top:-20%; background-position:30% 30%; animation:dvWispA 13s ease-in-out infinite alternate; }
+      #dive-overlay .dv-wisp.w2{ right:-32%; bottom:-22%; background-position:70% 70%; animation:dvWispB 17s ease-in-out infinite alternate; }
+      #dive-overlay.rest .dv-wisp{ opacity:.13; }
+      @keyframes dvWispA{ from{ transform:translateX(0); } to{ transform:translateX(5%); } }
+      @keyframes dvWispB{ from{ transform:translateX(0); } to{ transform:translateX(-5%); } }
+      /* ④ デッキ選択画面の出現：パネル本体→5色タイル（約70ms差）→保存デッキ欄→次へ→もどる の順。
+         UIのデザイン・配置・機能は変えず、出現のタイミングだけを付ける */
+      #scr-color1.dive-in .panel{ animation:dvPanelIn .6s cubic-bezier(.3,.6,.3,1) both; }
+      @keyframes dvPanelIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+      #scr-color1.dive-in .color-btn{ animation:dvItemIn .5s ease both; }
+      #scr-color1.dive-in .color-btn:nth-child(1){ animation-delay:.12s; }
+      #scr-color1.dive-in .color-btn:nth-child(2){ animation-delay:.19s; }
+      #scr-color1.dive-in .color-btn:nth-child(3){ animation-delay:.26s; }
+      #scr-color1.dive-in .color-btn:nth-child(4){ animation-delay:.33s; }
+      #scr-color1.dive-in .color-btn:nth-child(5){ animation-delay:.40s; }
+      #scr-color1.dive-in #saved-pick-wrap{ animation:dvItemIn .5s ease .5s both; }
+      #scr-color1.dive-in #btn-to-cpu{ animation:dvItemIn .5s ease .58s both; }
+      #scr-color1.dive-in #btn-back0{ animation:dvItemIn .5s ease .66s both; }
+      @keyframes dvItemIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+      @media (prefers-reduced-motion: reduce){
+        #scr-color1.dive-in .panel, #scr-color1.dive-in .color-btn,
+        #scr-color1.dive-in #saved-pick-wrap, #scr-color1.dive-in #btn-to-cpu, #scr-color1.dive-in #btn-back0{ animation:none; }
+        #dive-overlay .dv-wisp{ animation:none; }
+      }
       /* タイトル画面：濃紺＋金の世界観。キービジュアルは切り取らず全体を表示し、下端を背景色へ自然にフェードさせる */
       #scr-mode{ margin:-14px -12px -40px; padding:0 12px 44px; background:linear-gradient(180deg, #070a12 0, #0d1220 340px, #131a2e 640px, #10182c 100%); color:#e9e2cf; }
       .title-hero{ position:relative; margin:0 -12px; line-height:0; background:#070a12; }
@@ -5670,6 +5731,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         document.querySelectorAll(".screen").forEach(function(el){ el.classList.remove("on"); });
         $(id).classList.add("on");
         document.body.classList.toggle("in-battle", id === "scr-battle");
+        /* ダイブ遷移の残り霧（.rest）はデッキ選択画面にいるときだけ。他の画面へ移ったら消す */
+        if (id !== "scr-color1"){ const dvo = $("dive-overlay"); if (dvo) dvo.classList.remove("rest"); }
         window.scrollTo(0,0);
       }
 
@@ -5802,36 +5865,44 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBuilder();
         show("scr-build");
       }
-      /* ダイブ演出：ボタンの中心から金のリングと光が膨らみ、画面が中心へ吸い込まれるように
-         ズームして光に満ちてから色選択画面へ。約2秒。タップでスキップできる。
-         使うのはタイトル→色選択の入口だけ（他の画面遷移には広げない）。 */
-      let diveTimer = null, diveFinished = true;
-      function finishDive(go){
-        if (diveFinished) return;
-        diveFinished = true;
-        if (diveTimer){ clearTimeout(diveTimer); diveTimer = null; }
-        const ov = $("dive-overlay"), wrap = document.querySelector(".wrap");
+      /* ダイブ遷移：イジンデンの世界に入り、軍団を選ぶ場所へ移るための演出（合計2.5秒）。
+         ①ボタンが沈み画面が少し暗くなる→②墨がにじみ、白〜薄グレーの霧が4層で画面を覆う→
+         ③霧が最も濃い約1.25秒の時点で裏側でデッキ選択画面へ切り替える（素の画面は見えない）→
+         ④霧が晴れてパネルと5色タイルが時間差で現れる→⑤端に薄い霧だけが漂う状態（.rest）で落ち着く。
+         タップでスキップ可。prefers-reduced-motion では即時遷移する。
+         使うのはタイトル→デッキ選択の入口だけ（対戦開始イントロとは別物・他の遷移には広げない）。 */
+      let diveTimers = [], diveSwapped = true, diveDone = true;
+      function diveLater(fn, ms){ diveTimers.push(setTimeout(fn, ms)); }
+      function diveSwap(go){
+        if (diveSwapped) return;
+        diveSwapped = true;
         go();
-        wrap.classList.remove("diving");
-        ov.classList.add("out");
-        setTimeout(function(){ ov.classList.remove("on", "go", "out"); ov.onclick = null; }, 500);
+        $("dive-overlay").classList.add("clear");
+      }
+      function diveCleanup(){
+        if (diveDone) return;
+        diveDone = true;
+        diveTimers.forEach(clearTimeout); diveTimers = [];
+        const ov = $("dive-overlay"), btn = $("btn-mode-cpu");
+        if (ov){ ov.classList.remove("on", "go", "clear", "bye"); ov.classList.add("rest"); ov.onclick = null; }
+        if (btn) btn.classList.remove("pressed");
       }
       function startDiveTransition(go){
         if (reducedMotion()){ go(); return; }
-        const btn = $("btn-mode-cpu"), ov = $("dive-overlay"), wrap = document.querySelector(".wrap");
-        if (!btn || !ov || !wrap){ go(); return; }
-        const r = btn.getBoundingClientRect();
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        ov.style.setProperty("--dx", cx + "px");
-        ov.style.setProperty("--dy", cy + "px");
-        const wr = wrap.getBoundingClientRect();
-        wrap.style.setProperty("--dx", (cx - wr.left) + "px");
-        wrap.style.setProperty("--dy", (cy - wr.top) + "px");
-        diveFinished = false;
+        const btn = $("btn-mode-cpu"), ov = $("dive-overlay");
+        if (!btn || !ov){ go(); return; }
+        diveTimers.forEach(clearTimeout); diveTimers = [];
+        diveSwapped = false; diveDone = false;
+        ov.classList.remove("rest", "clear", "go", "on", "bye"); void ov.offsetWidth;
+        btn.classList.add("pressed");
         ov.classList.add("on");
-        requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add("go"); wrap.classList.add("diving"); }); });
-        diveTimer = setTimeout(function(){ finishDive(go); }, 1620);
-        ov.onclick = function(){ finishDive(go); };
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add("go"); }); });
+        diveLater(function(){ diveSwap(go); }, 1250);
+        diveLater(function(){ diveCleanup(); }, 2500);
+        ov.onclick = function(){
+          if (!diveSwapped){ diveSwap(go); diveLater(function(){ diveCleanup(); }, 420); }
+          else if (!diveDone){ ov.classList.add("bye"); diveLater(function(){ diveCleanup(); }, 320); }
+        };
       }
       $("btn-mode-cpu").addEventListener("click", function(){
         S.gameMode = "cpu"; S.savedDecks = { P: null, C: null };
@@ -10340,7 +10411,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         bindSavedToggle("lobby-saved-toggle", "lobby-saved-list");
       })();
     </script>
-    <!-- ダイブ演出用オーバーレイ（タイトル→色選択の遷移でのみ使う） -->
-    <div id="dive-overlay" aria-hidden="true"><div class="dive-glow"></div><div class="dive-ring"></div><div class="dive-ring r2"></div><div class="dive-flood"></div></div>
+    <!-- ダイブ遷移用オーバーレイ（タイトル→デッキ選択の遷移でのみ使う）：
+         暗転→墨のにじみ（.dv-ink×3）→霧の層（.dv-fog×4）→晴れたあと端に残る薄い霧（.dv-wisp×2） -->
+    <div id="dive-overlay" aria-hidden="true"><div class="dv-dim"></div><div class="dv-ink k1"></div><div class="dv-ink k2"></div><div class="dv-ink k3"></div><div class="dv-fog f1"></div><div class="dv-fog f2"></div><div class="dv-fog f3"></div><div class="dv-fog f4"></div><div class="dv-wisp w1"></div><div class="dv-wisp w2"></div></div>
+    <!-- 墨のにじみの縁を不規則に歪ませるための SVG ノイズフィルター（表示はしない） -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><filter id="dv-inkwarp" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.011 0.017" numOctaves="3" seed="8" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="110" /></filter></defs></svg>
   </body>
 </html>
