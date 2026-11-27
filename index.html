@@ -330,7 +330,15 @@
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
       .pile .ptap{ font-size:.52rem; color:var(--gold); font-weight:800; letter-spacing:.06em; }
-      .grave-overlay{ z-index:65; }
+      /* 墓地ビューアは効果選択モーダル（fx-overlay:80）より手前に出す：
+         遺業の発動判断などの選択中でも墓地を確認してから決められるようにするため */
+      .grave-overlay{ z-index:90; }
+      /* 効果選択モーダル内の「墓地を見る」ボタン行（判断前に両陣営の墓地を確認できる） */
+      .fx-grave-row{ display:flex; gap:8px; margin-top:12px; }
+      .fx-grave-btn{
+        flex:1; border:1.5px solid var(--gold); background:transparent; color:var(--gold);
+        border-radius:999px; padding:9px 6px; font-size:.78rem; font-weight:900; line-height:1.2;
+      }
       .grave-card{ text-align:left; max-width:400px; width:100%; max-height:88dvh; display:flex; flex-direction:column; }
       .grave-card h2{ font-size:1.05rem; margin:0 0 4px; text-align:left; }
       .grave-card p{ color:var(--ink2); font-size:.78rem; margin:0; }
@@ -344,7 +352,9 @@
       .fx-thumb{ width:42px; aspect-ratio:563/786; object-fit:cover; border-radius:5px; flex:none; border:1px solid var(--line); background:#20242e; }
       /* 選択肢内の「拡大」チップ：行タップ＝確定と区別するため、拡大はこの小さなチップだけに寄せる */
       .fx-zoom{ flex:none; font-size:.68rem; font-weight:900; color:var(--accent); border:1.5px solid var(--accent); border-radius:999px; padding:7px 10px; background:var(--panel); line-height:1; }
-      .fx-card{ max-height:94dvh; }
+      .fx-card{ max-height:94dvh; display:flex; flex-direction:column; }
+      .fx-card > *{ flex:none; }
+      .fx-card .fx-opts{ flex:0 1 auto; min-height:0; }
       .fx-opt.sel{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; }
       .fx-opt:disabled{ opacity:.38; }
       /* result overlay */
@@ -1228,6 +1238,10 @@
         <h2 id="fx-title"></h2>
         <p id="fx-body"></p>
         <div class="fx-opts" id="fx-opts"></div>
+        <div class="fx-grave-row">
+          <button class="fx-grave-btn" id="fx-grave-me" type="button">自分の墓地を見る</button>
+          <button class="fx-grave-btn" id="fx-grave-foe" type="button">相手の墓地を見る</button>
+        </div>
         <button class="big-btn accent hidden" id="fx-confirm">決定</button>
       </div>
     </div>
@@ -6779,9 +6793,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       $("btn-zoom-close").addEventListener("click", function(){ $("overlay-zoom").classList.remove("on"); });
 
       /* ---- 墓地ビューア（墓地は公開情報：両陣営とも全内容を見られる） ---- */
-      function showGraveViewer(sideKey){
+      function showGraveViewer(sideKey, fromFx){
         const G = S.G; if (!G || G.over) return;
-        if ($("overlay-fx").classList.contains("on")) return; // 選択モーダル表示中はそちらを優先
+        // 選択モーダル表示中は基本そちらを優先するが、モーダル内の「墓地を見る」ボタンからなら開く
+        // （遺業【冥府発動】など、墓地の中身を見てから発動を決めたい場面があるため）
+        if (!fromFx && $("overlay-fx").classList.contains("on")) return;
         if (G.handoffPending) return;
         const side = G[sideKey];
         $("grave-title").textContent = whoName(sideKey) + "の墓地（" + side.grave.length + "枚）";
@@ -6804,6 +6820,20 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("overlay-grave").classList.add("on");
       }
       $("btn-grave-close").addEventListener("click", function(){ $("overlay-grave").classList.remove("on"); });
+
+      /* ---- 効果選択モーダルから墓地を見る ----
+         選択肢を決める前に墓地（公開情報）を確認できるよう、fxモーダル内にボタンを置く。
+         墓地ビューアはfxモーダルより手前に重なるので、閉じればそのまま選択に戻れる。 */
+      let fxChooserKey = "P";
+      function fxGraveSetup(chooserKey){
+        fxChooserKey = (chooserKey === "C") ? "C" : "P";
+        const G = S.G; if (!G) return;
+        const foe = foeKeyOf(fxChooserKey);
+        $("fx-grave-me").textContent = whoName(fxChooserKey) + "の墓地を見る（" + G[fxChooserKey].grave.length + "枚）";
+        $("fx-grave-foe").textContent = whoName(foe) + "の墓地を見る（" + G[foe].grave.length + "枚）";
+      }
+      $("fx-grave-me").addEventListener("click", function(){ showGraveViewer(fxChooserKey, true); });
+      $("fx-grave-foe").addEventListener("click", function(){ showGraveViewer(foeKeyOf(fxChooserKey), true); });
 
       /* ---- effect choice modal ---- */
       function fxShow(){ $("overlay-fx").classList.add("on"); }
@@ -6874,6 +6904,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.gameMode === "online" && NET.isHost() && chooser === "C") return NET.remotePrompt("choose", title, body, options, 0);
         return ensureViewer(chooser, "選択の順番です").then(function(){
         return new Promise(function(res){
+          fxGraveSetup(chooser);
           $("fx-title").textContent = title;
           const bodyEl = $("fx-body");
           bodyEl.textContent = body || ""; bodyEl.style.display = body ? "" : "none";
@@ -6894,6 +6925,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.gameMode === "online" && NET.isHost() && chooser === "C") return NET.remotePrompt("multi", title, body, options, count);
         return ensureViewer(chooser, "選択の順番です").then(function(){
         return new Promise(function(res){
+          fxGraveSetup(chooser);
           $("fx-title").textContent = title;
           const bodyEl = $("fx-body");
           bodyEl.textContent = body || ""; bodyEl.style.display = body ? "" : "none";
@@ -7525,6 +7557,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           else if (G.mode === "main" && (side.nagayaAtStart || 0) > 0){ canActivate = true; body += "\n状態：今が発動できるタイミングだよ。下のボタンから発動できる。"; }
           else body += "\n状態：今は発動できるタイミングじゃないよ。自分のメインフェイズ開始時に自動で確認が出る。";
         }
+        fxGraveSetup(sideKey);
         $("fx-title").textContent = "ハイケイ「" + h.name + "」";
         const bodyEl = $("fx-body");
         bodyEl.textContent = body; bodyEl.style.display = "";
@@ -9509,6 +9542,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       // ゲスト側：ホストから届いた選択肢を、通常の効果選択モーダルと同じ見た目で出す
       function netShowPrompt(msg){
+        fxGraveSetup("P"); // ゲスト側では自分の陣営が常に「P」に割り当てられる
         $("fx-title").textContent = msg.title;
         const bodyEl = $("fx-body");
         bodyEl.textContent = msg.body || ""; bodyEl.style.display = msg.body ? "" : "none";
