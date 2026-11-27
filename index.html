@@ -30,7 +30,9 @@
         }
       }
       *{ box-sizing:border-box; }
-      html,body{ margin:0; padding:0; }
+      html,body{ margin:0; padding:0; overscroll-behavior:none; overscroll-behavior-y:none; }
+      /* 内部スクロール要素の端でジェスチャーがページ側へ連鎖して「引っ張って更新」にならないようにする */
+      .log-full, .grave-list, .fx-opts, .haikei-zone, .maryoku-zone, .ds-blk-scroll, .zoom-card{ overscroll-behavior:contain; }
       body{
         font-family:"Zen Kaku Gothic New", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
         background:var(--bg); color:var(--ink);
@@ -409,6 +411,8 @@
       .ijin-zone .mini + .mini{ margin-left:-12px; }
       /* ---------- deck builder sticky footer ---------- */
       #scr-build{ padding-bottom:124px; }
+      /* 軍団編成モードではフッターに途中保存ボタンが増えて縦に伸びるぶん、下の余白も広げる */
+      #scr-build.gundan-mode{ padding-bottom:186px; }
       #scr-build #btn-start-battle{ display:none; }
       .db-footer{
         position:fixed; left:0; right:0; bottom:0; z-index:40;
@@ -421,6 +425,8 @@
       .dbf-count{ font-weight:900; font-size:1.1rem; white-space:nowrap; }
       .dbf-count small{ font-size:.74rem; color:var(--ink2); font-weight:700; }
       .dbf-break{ font-size:.68rem; color:var(--ink2); font-weight:700; }
+      .dbf-draft{ width:100%; margin-top:7px; border-radius:10px; font-weight:800; font-size:.85rem; min-height:2.7rem; padding:8px 4px; background:transparent; border:1.5px solid var(--gold); color:var(--gold); }
+      .dbf-draft:disabled{ opacity:.35; }
       .dbf-btns{ display:flex; gap:7px; margin-top:7px; }
       .dbf-btns button{ border-radius:10px; font-weight:800; min-height:2.9rem; padding:9px 4px; }
       .dbf-btns .btn-rec, .dbf-btns .btn-reset{ flex:1; font-size:.8rem; }
@@ -771,6 +777,9 @@
       .saved-deck-item .meta{ font-size:.72rem; color:var(--ink2); font-weight:700; }
       .saved-deck-item .go{ margin-left:auto; flex:none; font-size:.78rem; font-weight:900; color:var(--gold); }
       .saved-deck-item:active{ border-color:var(--gold); }
+      .saved-deck-item.is-draft{ opacity:.55; cursor:not-allowed; }
+      .saved-deck-item.is-draft .go{ color:var(--ink2); }
+      .gundan-item .draft-badge{ display:inline-block; font-size:.62rem; font-weight:900; color:var(--gold); border:1.5px solid var(--gold); border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:2px; white-space:nowrap; }
       .gundan-item{
         display:flex; align-items:center; gap:10px;
         background:var(--panel2); border:1px solid var(--line); border-radius:11px;
@@ -1019,6 +1028,7 @@
               <span class="dbf-count"><span id="dbf-total">0</span><small> / 40枚</small></span>
               <span class="dbf-break" id="dbf-breakdown"></span>
             </div>
+            <button class="dbf-draft" id="btn-draft-save" type="button" style="display:none;">途中保存</button>
             <div class="dbf-btns">
               <button class="btn-rec" id="btn-recommend2" type="button">✦ おすすめ</button>
               <button class="btn-reset" id="btn-reset2" type="button">リセット</button>
@@ -5521,6 +5531,43 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         window.scrollTo(0,0);
       }
 
+      /* 引っ張って更新（プル・トゥ・リフレッシュ）の誤動作防止：
+         画面の一番上で勢いよく下へ引っ張るとブラウザが再読み込みしてタイトル画面に戻ってしまうため、
+         「一番上にいる状態でさらに下へ引っ張る」ジェスチャーだけを止める。
+         通常のスクロール（下へ進む操作／途中からの上スクロール）は妨げない。
+         overscroll-behavior を解釈しないブラウザ・WebView 向けの保険として JS でも抑える。 */
+      (function preventPullToRefresh(){
+        let startY = 0, startX = 0, tracking = false;
+        function scrollableAncestor(el){
+          let n = el;
+          while (n && n !== document.body){
+            if (n.nodeType === 1){
+              const st = window.getComputedStyle(n);
+              if ((st.overflowY === "auto" || st.overflowY === "scroll") && n.scrollHeight > n.clientHeight + 1) return n;
+            }
+            n = n.parentElement;
+          }
+          return null;
+        }
+        document.addEventListener("touchstart", function(e){
+          if (e.touches.length !== 1){ tracking = false; return; }
+          tracking = true;
+          startY = e.touches[0].clientY; startX = e.touches[0].clientX;
+        }, { passive: true });
+        document.addEventListener("touchmove", function(e){
+          if (!tracking || e.touches.length !== 1) return;
+          const dy = e.touches[0].clientY - startY;
+          const dx = e.touches[0].clientX - startX;
+          if (dy < 6 || Math.abs(dx) > Math.abs(dy)) return; // 下方向への引っ張りだけが対象
+          const sc = scrollableAncestor(e.target);
+          if (sc){ if (sc.scrollTop > 0) return; }        // その要素がまだ上へスクロールできる
+          else if (window.scrollY > 0) return;            // ページがまだ上へスクロールできる
+          if (e.cancelable) e.preventDefault();           // 一番上での引っ張り＝更新ジェスチャーなので止める
+        }, { passive: false });
+        document.addEventListener("touchend", function(){ tracking = false; }, { passive: true });
+        document.addEventListener("touchcancel", function(){ tracking = false; }, { passive: true });
+      })();
+
       /* ================= color select ================= */
       function poolFor(color){
         const set = new Map();
@@ -5772,13 +5819,20 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           return;
         }
         list.forEach(function(d){
+          const dTotal = deckCountsTotal(d.cards);
+          const isDraft = dTotal < 40;
           const row = document.createElement("div");
           row.className = "gundan-item";
           row.innerHTML =
             deckDotsHtml(d) +
-            '<div class="info"><div class="nm"></div><div class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</div></div>' +
+            '<div class="info"><div class="nm"></div><div class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中' : dTotal + '枚') + '</div></div>' +
             '<div class="g-act"><button type="button" class="edit">編集</button><button type="button" class="del">削除</button></div>';
           row.querySelector(".nm").textContent = d.name;
+          if (isDraft){
+            const badge = document.createElement("span");
+            badge.className = "draft-badge"; badge.textContent = "作成中";
+            row.querySelector(".nm").appendChild(badge);
+          }
           row.querySelector(".edit").addEventListener("click", function(){ startGundanEdit(d); });
           const delBtn = row.querySelector(".del");
           delBtn.addEventListener("click", function(){
@@ -5825,6 +5879,27 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           });
         }
       }
+      /* 途中保存：40枚選び切る前でも名前を付けて保存し、軍団編成の一覧へ戻る。
+         保存したデッキは「作成中」として一覧に出て、編集から続きを組める。 */
+      function draftSaveGundan(){
+        if (S.buildCtx !== "gundan") return;
+        const total = deckTotal();
+        if (total === 0 || total === 40) return;
+        if (S.editDeckId){
+          askDeckName(S.editDeckName, "途中保存する", function(nm){
+            const list = loadMyDecks();
+            const d = list.find(function(x){ return x.id === S.editDeckId; });
+            if (d){ d.name = nm; d.color = S.buildColor; d.colors = curBuildColors().slice(); d.cards = Object.assign({}, S.deckSel); d.updated = Date.now(); storeMyDecks(list); }
+            S.buildCtx = "battle"; renderGundan(); show("scr-gundan");
+          });
+        } else {
+          askDeckName("", "途中保存する", function(nm){
+            saveDeckAsNew(nm, S.buildColor, S.deckSel, curBuildColors());
+            S.buildCtx = "battle"; renderGundan(); show("scr-gundan");
+          });
+        }
+      }
+      $("btn-draft-save").addEventListener("click", draftSaveGundan);
       $("btn-to-gundan").addEventListener("click", function(){ renderGundan(); show("scr-gundan"); });
       $("btn-gundan-back").addEventListener("click", function(){ show("scr-mode"); });
       /* 軍団編成の色選択：タップで最大2色まで選択（もう一度タップで解除）。3色目を選ぶと一番古い選択と入れ替わる */
@@ -5876,20 +5951,27 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (spt0){ spt0.setAttribute("aria-expanded", "false"); spt0.classList.remove("open"); }
         listEl.innerHTML = "";
         list.forEach(function(d){
+          const dTotal = deckCountsTotal(d.cards);
+          const isDraft = dTotal < 40;
           const b = document.createElement("button");
-          b.type = "button"; b.className = "saved-deck-item";
+          b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "");
           b.innerHTML =
             deckDotsHtml(d) +
-            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
-            '<span class="go">このデッキで進む ›</span>';
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚で対戦に使えるよ）' : dTotal + '枚') + '</span></span>' +
+            '<span class="go">' + (isDraft ? '枚数不足' : 'このデッキで進む ›') + '</span>';
           b.querySelector(".nm").textContent = d.name;
-          b.addEventListener("click", function(){
-            S.useSavedDeck = true;
-            S.playerColor = d.color;
-            S.savedDecks.P = Object.assign({}, d.cards);
-            S.lastDecks.P = deckCountsToNames(d.cards);
-            configColor2(); show("scr-color2");
-          });
+          if (isDraft){
+            // 作成中（40枚未満）のデッキは対戦に使えないので選択不可にする
+            b.disabled = true;
+          } else {
+            b.addEventListener("click", function(){
+              S.useSavedDeck = true;
+              S.playerColor = d.color;
+              S.savedDecks.P = Object.assign({}, d.cards);
+              S.lastDecks.P = deckCountsToNames(d.cards);
+              configColor2(); show("scr-color2");
+            });
+          }
           listEl.appendChild(b);
         });
       }
@@ -5925,14 +6007,21 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         sb2.textContent = (S.gameMode === "2p" && S.buildTarget === "P") ? "プレイヤー1のデッキ決定！次へ" : "対戦スタート！";
         // 軍団編成モード：フッターの主ボタンは保存ボタンになり、「名前を付けて保存」は隠す
         const svBtn = $("btn-save-deck");
+        const drBtn = $("btn-draft-save");
+        $("scr-build").classList.toggle("gundan-mode", S.buildCtx === "gundan");
         if (S.buildCtx === "gundan"){
           $("db-who").textContent = "：軍団編成" + (S.editDeckId ? "（編集中：" + S.editDeckName + "）" : "（新しいデッキ）");
           $("btn-back2").textContent = "軍団編成へもどる";
           sb2.textContent = S.editDeckId ? "この内容で上書き保存" : "名前を付けて保存";
           svBtn.style.display = "none";
+          // 途中保存：40枚未満でも保存できる（軍団編成のときだけ出す。0枚のときと、完成時は通常保存に任せるので無効）
+          drBtn.style.display = "";
+          drBtn.disabled = (total === 0 || total === 40);
+          drBtn.textContent = total === 40 ? "途中保存（40枚そろったので下のボタンで保存してね）" : "途中保存（いま " + total + "/40枚）";
         } else {
           svBtn.style.display = "";
           svBtn.disabled = (total !== 40);
+          drBtn.style.display = "none";
         }
         // オンライン対戦のデッキ構築：主ボタンは「準備OK」になり、戻る先はロビー
         if (S.buildCtx === "online"){
@@ -9341,14 +9430,21 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         wrap.style.display = "";
         listEl.innerHTML = "";
         list.forEach(function(d){
+          const dTotal = deckCountsTotal(d.cards);
+          const isDraft = dTotal < 40;
           const b = document.createElement("button");
-          b.type = "button"; b.className = "saved-deck-item";
+          b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "");
           b.innerHTML =
             deckDotsHtml(d) +
-            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
-            '<span class="go">このデッキにする ›</span>';
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚で対戦に使えるよ）' : dTotal + '枚') + '</span></span>' +
+            '<span class="go">' + (isDraft ? '枚数不足' : 'このデッキにする ›') + '</span>';
           b.querySelector(".nm").textContent = d.name;
-          b.addEventListener("click", function(){ NET.setMyDeck(deckCountsToNames(d.cards), d.color); });
+          if (isDraft){
+            // 作成中（40枚未満）のデッキは対戦に使えないので選択不可にする
+            b.disabled = true;
+          } else {
+            b.addEventListener("click", function(){ NET.setMyDeck(deckCountsToNames(d.cards), d.color); });
+          }
           listEl.appendChild(b);
         });
       }
