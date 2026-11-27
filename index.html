@@ -327,6 +327,44 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
+      /* 対戦開始イントロ：暗い霧の中に「Dive to イジンデン」のロゴが浮かび、霧が晴れて後ろの盤面が現れてからターンバナーへつなぐ */
+      .dive-intro{
+        position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
+        transition:opacity .35s ease, visibility 0s linear .35s;
+      }
+      .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .3s ease; }
+      .di-bg{ position:absolute; inset:0; background:radial-gradient(ellipse at 50% 42%, #16223e 0%, #0a1122 52%, #030409 100%); opacity:1; transition:opacity 1.45s ease; }
+      .dive-intro.clear .di-bg{ opacity:0; }
+      .di-fog{ position:absolute; border-radius:50%; filter:blur(26px); pointer-events:none;
+        background:radial-gradient(ellipse at center, rgba(186,202,232,.55) 0%, rgba(186,202,232,.22) 45%, rgba(186,202,232,0) 72%);
+        opacity:.85; transition:opacity 1.45s ease, transform 1.45s ease; }
+      .di-fog.f1{ width:130vw; height:46vh; left:-18vw; top:2%; animation:diDrift1 7s ease-in-out infinite alternate; }
+      .di-fog.f2{ width:120vw; height:52vh; right:-22vw; top:26%; animation:diDrift2 9s ease-in-out infinite alternate; }
+      .di-fog.f3{ width:140vw; height:48vh; left:-24vw; bottom:-6%; animation:diDrift1 8s ease-in-out infinite alternate-reverse; }
+      .di-fog.f4{ width:90vw; height:34vh; left:16vw; top:44%; opacity:.6; animation:diDrift2 6.5s ease-in-out infinite alternate-reverse; }
+      @keyframes diDrift1{ from{ margin-left:-4vw; } to{ margin-left:5vw; } }
+      @keyframes diDrift2{ from{ margin-left:4vw; } to{ margin-left:-5vw; } }
+      .dive-intro.clear .di-fog{ opacity:0; animation:none; }
+      .dive-intro.clear .di-fog.f1{ transform:translateX(-16vw); }
+      .dive-intro.clear .di-fog.f2{ transform:translateX(16vw); }
+      .dive-intro.clear .di-fog.f3{ transform:translateY(10vh); }
+      .dive-intro.clear .di-fog.f4{ transform:translateY(-8vh) scale(1.25); }
+      .di-center{ position:absolute; left:50%; top:43%; transform:translate(-50%,-50%); width:min(94vw,660px); text-align:center; }
+      .di-glow{ position:absolute; left:50%; top:50%; width:135%; padding-top:62%; transform:translate(-50%,-50%);
+        background:radial-gradient(ellipse at center, rgba(255,247,224,.96) 0%, rgba(252,233,183,.6) 42%, rgba(252,233,183,0) 72%);
+        opacity:0; transition:opacity .8s ease; }
+      .dive-intro.on .di-glow{ opacity:1; }
+      .dive-intro.clear .di-glow{ opacity:0; transition:opacity 1.1s ease; }
+      .di-logo{ position:relative; width:100%; height:auto; display:block; opacity:0; transform:scale(.78);
+        filter:drop-shadow(0 4px 18px rgba(255,255,255,.55)) drop-shadow(0 10px 30px rgba(0,0,0,.5));
+        transition:opacity .55s ease, transform .65s cubic-bezier(.2,.8,.3,1.15); }
+      .dive-intro.on .di-logo{ opacity:1; transform:scale(1); }
+      .dive-intro.clear .di-logo{ opacity:0; transform:scale(1.04) translateY(-8px); transition:opacity 1s ease, transform 1.2s ease; }
+      @media (prefers-reduced-motion: reduce){
+        .di-fog{ animation:none !important; }
+        .di-logo{ transition:opacity .3s ease; transform:none; }
+        .dive-intro.clear .di-logo{ transform:none; }
+      }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
       .pile .ptap{ font-size:.52rem; color:var(--gold); font-weight:800; letter-spacing:.06em; }
@@ -1085,6 +1123,19 @@
           <img class="callout-img hidden" id="callout-img" src="assets/callout_attack.png" alt="" />
           <div class="callout-tx" id="callout-tx"></div>
           <div class="callout-sub" id="callout-sub"></div>
+        </div>
+
+        <!-- 対戦開始イントロ：暗い霧→ダイブロゴ→霧が晴れて盤面→ターンバナー（タップでスキップ可） -->
+        <div class="dive-intro" id="dive-intro" aria-hidden="true">
+          <div class="di-bg"></div>
+          <div class="di-fog f1"></div>
+          <div class="di-fog f2"></div>
+          <div class="di-fog f3"></div>
+          <div class="di-fog f4"></div>
+          <div class="di-center">
+            <div class="di-glow"></div>
+            <img class="di-logo" src="assets/callout_dive.png" alt="" />
+          </div>
         </div>
 
         <!-- opponent side (CPU / プレイヤー2): mat rotated 180°, zones mirrored -->
@@ -6393,6 +6444,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       let calloutChainTimer = null;
       function showCallout(kind, sub, opts){
         const el = $("callout"); if (!el || !S.G || S.G.over) return;
+        // 対戦開始の「ダイブトゥイジンデン！」（opts.big）は通常のコールアウトではなく霧のイントロ演出で大きく見せる
+        if (kind === "dive" && opts && opts.big) return playDiveIntro(opts);
         const im = $("callout-img"), tx = $("callout-tx"), sb = $("callout-sub");
         im.onerror = function(){ im.classList.add("hidden"); tx.textContent = CALLOUT_TX[kind] || ""; };
         if (im.getAttribute("src") !== CALLOUT_IMG[kind]) im.src = CALLOUT_IMG[kind];
@@ -6411,6 +6464,50 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const nx = opts.next;
           calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
         }
+      }
+      /* ---- 対戦開始イントロ：暗い霧の中にダイブロゴが浮かび、霧が晴れて盤面が現れたあと、opts.nextのターンバナーへつなぐ。
+         タップでスキップ可。完了を待てるようPromiseを返す（オンライン対戦のゲスト再演用） ---- */
+      let diveIntroTimers = [], diveIntroResolve = null, diveIntroPhase = 2;
+      function playDiveIntro(opts){
+        // オンライン対戦：ホストはダイブ開始をイベントとして記録し、ゲスト側でも同じイントロを再演する
+        if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: "dive", sub: "" }); NET.queueState(); }
+        const next = (opts && opts.next) || null;
+        const ov = $("dive-intro");
+        if (!ov){ // 念のためのフォールバック：イントロ無しでターンバナーだけ出す
+          if (next) setTimeout(function(){ showCallout(next.kind, next.sub, { dur: next.dur || 1150, next: next.next || null, gap: next.gap }); }, 700);
+          return Promise.resolve();
+        }
+        if (calloutTimer) clearTimeout(calloutTimer);
+        if (calloutChainTimer) clearTimeout(calloutChainTimer);
+        const co = $("callout"); if (co) co.classList.remove("show");
+        diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
+        if (diveIntroResolve){ const r0 = diveIntroResolve; diveIntroResolve = null; r0(); }
+        const rm = reducedMotion();
+        const clearAt = rm ? 750 : 2000;   // ロゴを見せてから霧が晴れ始めるまで
+        const done = new Promise(function(res){ diveIntroResolve = res; });
+        const finish = function(){
+          diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
+          diveIntroPhase = 2;
+          ov.classList.remove("on"); ov.classList.remove("clear");
+          const r = diveIntroResolve; diveIntroResolve = null; if (r) r();
+          if (next && S.G && !S.G.over) showCallout(next.kind, next.sub, { dur: next.dur || 1150, next: next.next || null, gap: next.gap });
+        };
+        const toClear = function(){
+          if (diveIntroPhase !== 0) return;
+          diveIntroPhase = 1;
+          ov.classList.add("clear"); // 霧とロゴが約1.3秒かけて消え、後ろの盤面が現れる
+          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 1350));
+        };
+        diveIntroPhase = 0;
+        ov.classList.remove("clear"); ov.classList.remove("on"); void ov.offsetWidth;
+        diveIntroTimers.push(setTimeout(function(){ ov.classList.add("on"); }, 40));
+        diveIntroTimers.push(setTimeout(toClear, clearAt));
+        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 3600)); // 保険：必ず終わる
+        ov.onclick = function(){ // タップでスキップ（霧を晴らす→即終了）
+          if (diveIntroPhase === 0) toClear();
+          else if (diveIntroPhase === 1) finish();
+        };
+        return done;
       }
       // 攻撃宣言のコールアウト：「攻撃」→（召喚したそのターンに即応で攻撃したイジンがいるときだけ）「即応」
       // →（ダブルプレッシャー持ちがいれば）「ダブルプレッシャー」の順に短く切り替える。
@@ -7754,7 +7851,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (first) showCallout("dive", "", { dur: 1750, big: true, next: { kind: "turnEnemy", dur: 1150 }, gap: 1600 });
         else showCallout("turnEnemy");
         renderBattle();
-        await wait(2500);
+        await wait(first ? 3700 : 2500); // 初ターンは霧イントロ＋ターンバナーが終わってからCPUが動き出す
         if (C.deck.length === 0){ endGame("P", "CPUの山札が尽きた！"); return; }
         C.field.forEach(function(f){ f.sleeping = false; });
         C.guardians.forEach(function(g){ g.sleeping = false; });
@@ -9707,11 +9804,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         for (const raw of evs){
           if (!S.G || S.G.over || NET.over || !NET.started) return;
           const e = netSwapEv(raw);
-          try { await Promise.race([guestFxOne(e), wait(1600)]); } catch(err){}
+          const cap = (e.k === "callout" && e.kind === "dive") ? 4300 : 1600; // ダイブの霧イントロだけ長めに待つ
+          try { await Promise.race([guestFxOne(e), wait(cap)]); } catch(err){}
         }
       }
       function guestFxOne(e){
-        if (e.k === "callout"){ showCallout(e.kind, e.sub || "", { dur: 520, big: e.kind === "dive" }); return wait(460); }
+        if (e.k === "callout"){
+          const p = showCallout(e.kind, e.sub || "", { dur: 520, big: e.kind === "dive" });
+          return (p && typeof p.then === "function") ? p : wait(460); // ダイブは霧イントロの完了まで待ってから次の再演へ
+        }
         if (e.k === "draw") return guestFxDraw(e.side, e.n);
         if (e.k === "place") return guestFxPlace(e);
         if (e.k === "attack") return guestFxAttack(e);
