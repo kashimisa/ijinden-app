@@ -6030,6 +6030,41 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         Object.keys(picked).forEach(function(n){ for (let i = 0; i < picked[n]; i++) names.push(n); });
         return names;
       }
+      /* ================= 達人デッキ（大会優勝レシピ基盤） =================
+         2026-11-27 の調査（イジンブック Wiki*「デッキ集」ほかの大会優勝レシピ）に基づく。
+         達人（master）のときだけ、CPUデッキを選んだ色の優勝レシピ基盤に差し替える。
+         アプリのカードプールに無いカードは入れず（CARD に無い名前は自動で落ちる）、
+         不足分は通常のおすすめ編成 buildRecommended から同名4枚までの範囲で補って40枚にする。
+         - 赤：赤単アグロ（第1弾・優勝レシピそのまま40枚）
+         - 青：青単闘技場（第4弾・優勝レシピ。フェイス／恐れの種はプール外のため補完）
+         - 緑：清少納言ロック（第1弾・優勝レシピそのまま40枚）
+         - 黄：義政宇宙（優勝レシピ。プール内の核カード＋補完）
+         - 紫：ショーダウンコントロール青紫型（第5弾・優勝レシピ。土方歳三／悲しみの種はプール外のため補完） */
+      const MASTER_DECKS = {
+        "赤": { label: "赤単アグロ", cards: {"源義経":4,"明智光秀":4,"徳川家康":4,"北条政子":4,"織田信長":4,"連なる天守閣":4,"バレット":3,"チャンピオン":3,"カンテラ":4,"レッドオーブ":4,"ブルーオーブ":1,"グリーンオーブ":1} },
+        "青": { label: "青単闘技場", cards: {"ドナテッロ":4,"ジャン・カルヴァン":3,"衛青":2,"楊貴妃":4,"円形闘技場":4,"フール":4,"ストーム":4,"フェイス":4,"恐れの種":4,"遁甲式水鏡":3,"カルドロン":4} },
+        "緑": { label: "清少納言ロック", cards: {"卑弥呼":4,"大伴家持":4,"清少納言":3,"行基":4,"巨大古墳":3,"魔除けの社":2,"阿弥陀堂":4,"毘盧遮那仏像":4,"ポプリ":4,"レッドオーブ":2,"ブルーオーブ":2,"グリーンオーブ":4} },
+        "黄": { label: "義政宇宙", cards: {"ヴィジェ＝ルブラン":4,"劉備":4,"親鸞":4,"足利義政":4,"アイザック・ニュートン":2,"姜維":3,"メロウ":2,"カタストロフィ":1,"英傑集う大河":4,"三層の舎利殿":1,"イエローオーブ":4,"RYマーブルオーブ":4,"サンドグラス":3} },
+        "紫": { label: "ショーダウンコントロール（青紫型）", cards: {"長宗我部元親":3,"土方歳三":4,"和宮":1,"アンリ4世":3,"浪士集う長屋":3,"落日の王宮":3,"スピリットアウェイ":3,"ショーダウン":4,"ドッペルゲンガー":2,"悲しみの種":4,"パープルオーブ":3,"カルドロン":4,"辰星のピラー":4} }
+      };
+      function buildMasterDeck(color){
+        const def = MASTER_DECKS[color];
+        if (!def) return null;
+        const counts = {}; const names = [];
+        Object.keys(def.cards).forEach(function(n){
+          if (!CARD[n]) return; // プールに無いカードは入れない
+          const take = Math.min(4, def.cards[n]);
+          if (take > 0){ counts[n] = take; for (let i = 0; i < take; i++) names.push(n); }
+        });
+        if (names.length < 40){
+          buildRecommended([color]).forEach(function(n){
+            if (names.length >= 40) return;
+            if ((counts[n] || 0) >= 4) return;
+            counts[n] = (counts[n] || 0) + 1; names.push(n);
+          });
+        }
+        return names.length >= 40 ? names.slice(0, 40) : null;
+      }
       const ORB_FILE = {"赤":"red","青":"blue","緑":"green","黄":"yellow","紫":"purple"};
       function buildColorGrid(gridId, onPick){
         const g = $(gridId); g.innerHTML = "";
@@ -6781,6 +6816,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (!pendingStart || firstDecided) return;
         firstDecided = true;
         const d = pendingStart; pendingStart = null;
+        // 達人のときだけ、CPUデッキを大会優勝レシピ基盤のデッキに差し替える
+        // （難易度はこのモーダルで決まるため、差し替えは対戦開始の直前ここで行う。再戦時も同じ経路を通る）
+        if (S.gameMode === "cpu" && S.cpuLevel === "master"){
+          const md = buildMasterDeck(S.cpuColor);
+          if (md) d.C = md;
+        }
         const ov = $("overlay-first");
         if (btn) btn.classList.add("pressed");
         $("btn-first-me").disabled = true;
@@ -8467,7 +8508,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBattle(); await wait(2200);
         // 1) maryoku placement（配置権の回数まで）
         //    マリョク種別のカードを持っているときは必ず表向きで置く（レベルの高い順・ピラー系は最後）。
-        //    裏向き配置は「あと1レベルで出せるカードがある」レベル確保のときだけに限る。
+        //    裏向き配置はレベル確保のため（数ターンで届く見込みがあるとき。達人は序盤の積み増しもする）。
         while (C.maryokuRights > 0 && C.hand.length){
           if (S.cpuLevel === "novice" && Math.random() < 0.15) break; // 見習い：たまに配置自体を忘れる
           // 地上の紫微垣：ターン1回、墓地のマリョクを表向きで置ける
@@ -8499,23 +8540,37 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             });
             idx = mzIdxs[0];
           } else {
-            // レベル確保が必要か：色条件は満たしていて、レベルがあと1だけ足りないカードがあるか
+            // レベル確保が必要か：色条件は満たしていて、レベルが足りないカードがあるか。
+            // 【詰まりの根治】以前は「あと1レベルちょうど」のときしか裏向きで置かなかったため、
+            // 手札にマリョク種別が無いターンが続くと配置権を捨て続け、魔力レベルが止まって
+            // イジンが1体も出せないままになることがあった。裏向き配置でもレベルは+1ずつ
+            // 積み上がるので、数ターンで届く見込みのあるカードがあれば置くようにする。
             const miNow = manaInfo(C);
             let needMore = false;
             C.hand.forEach(function(h){
               const c = CARD[h.name];
               if (c.type !== "I" && !isMahouCard(c) && !isHaikeiCard(c)) return;
               const u = canUseCard(C, c);
-              if (!u.ok && u.colorOk && u.needLevel === miNow.levelSum + 1) needMore = true;
-              // 色の起点（表向きマリョク）がまだ1枚も無い序盤は、上の条件だけだと
-              // 「色OK」が永遠に成立せず、オーブ等を引くまで何も置けないままターンが終わる。
-              // 将来の表向きマリョクで色が満たされる前提で、レベルがあと1で届くカードが
-              // 手札にあれば、先に裏向きで置いて魔力レベルを積んでおく（人間の序盤の動き）。
-              if (!u.ok && miNow.faceColors.length === 0 && u.needLevel <= miNow.levelSum + 1) needMore = true;
+              if (u.ok) return;
+              if (u.colorOk && u.needLevel > miNow.levelSum && u.needLevel <= miNow.levelSum + 3) needMore = true;
+              // 色の起点（表向きマリョク）がまだ1枚も無い序盤は、将来の表向きマリョクで
+              // 色が満たされる前提で、先に裏向きで置いて魔力レベルを積んでおく（人間の序盤の動き）。
+              if (miNow.faceColors.length === 0 && u.needLevel > miNow.levelSum && u.needLevel <= miNow.levelSum + 3) needMore = true;
             });
+            // 達人：届く見込みのカードが手札に無くても、序盤（魔力レベル5未満）で手札に
+            // 余裕があれば配置権を捨てずに裏向きで置き、将来のドローに備えてレベルを積む
+            // （強い人の原則：マリョク配置権は基本的に毎ターン使う）。
+            if (!needMore && S.cpuLevel === "master" && miNow.levelSum < 5 && C.hand.length >= 4) needMore = true;
             const noviceWaste = S.cpuLevel === "novice" && Math.random() < 0.2; // 見習い：不要な裏向き配置をすることがある
             if (needMore || noviceWaste){
-              idx = C.hand.findIndex(function(h){ return CARD[h.name].type === "S" && !isHaikeiCard(CARD[h.name]) && !isMaryokuCard(CARD[h.name]); });
+              idx = -1;
+              if (S.cpuLevel === "master"){
+                // 達人：裏向きに回すのはまず余っている同名カード（手札の重複）から
+                const cnt = {};
+                C.hand.forEach(function(h){ cnt[h.name] = (cnt[h.name] || 0) + 1; });
+                idx = C.hand.findIndex(function(h){ return cnt[h.name] > 1 && !isMaryokuCard(CARD[h.name]); });
+              }
+              if (idx < 0) idx = C.hand.findIndex(function(h){ return CARD[h.name].type === "S" && !isHaikeiCard(CARD[h.name]) && !isMaryokuCard(CARD[h.name]); });
               if (idx < 0){
                 let best = -1, bestPow = Infinity;
                 C.hand.forEach(function(h, i){ const c = CARD[h.name]; if (c.type === "I" && c.power < bestPow){ bestPow = c.power; best = i; } });
@@ -8577,6 +8632,17 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (S.cpuLevel === "novice" && Math.random() < 0.3){
             const u = usable[Math.floor(Math.random() * usable.length)];
             cand = u.h; candFree = u.fr; // 見習い：たまに最強でないイジンを出す
+          } else if (S.cpuLevel === "master"){
+            // 達人：パワーの大きさだけでなく、出した瞬間に相手の場を崩せるか（召喚時除去）と、
+            // そのまま攻撃に回れるか（即応）も評価して出す順番を決める（強い人の「除去って殴る」順序）
+            let bestScore = -Infinity;
+            usable.forEach(function(u){
+              let sc = effPower("C", u.h);
+              const cc = CARD[u.h.name];
+              if (G.P.field.length && cc.text && cc.text.indexOf("戦場に置かれたとき") >= 0 && cc.text.indexOf("破壊") >= 0) sc += 1200; // 北条政子・源頼朝などの召喚時除去
+              if (hasKwEff("C", u.h, "即応")) sc += 600; // 出したターンから圧をかけられる
+              if (sc > bestScore){ bestScore = sc; cand = u.h; candFree = u.fr; }
+            });
           } else {
             usable.forEach(function(u){ if (!cand || effPower("C", u.h) > effPower("C", cand)){ cand = u.h; candFree = u.fr; } });
           }
@@ -8647,6 +8713,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (C.noBattleSeq === G.turnSeq) attackers = []; // ラ・コロール：このターンはバトルできない
         if (S.cpuLevel === "novice" && attackers.length && Math.random() < 0.3){
           attackers = attackers.filter(function(){ return Math.random() < 0.6; }); // 見習い：たまに攻撃をためらう
+        }
+        if (S.cpuLevel === "master" && attackers.length && !G.over){
+          attackers = masterPickAttackers(attackers); // 達人：強い人の攻撃原則で宣言するイジンを選ぶ
         }
         if (attackers.length && !G.over){
           attackers.forEach(function(f){ f.sleeping = true; });
@@ -8968,6 +9037,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       //   凡人(normal) → この関数本体（勝ち→引き分け→ガーディアン→最弱イジンの順）
       //   見習い(novice) → cpuAssignBlockersNovice（ランダム気味の割り当て）
       // 効果の対象選びは fxPickOne、召喚・マホウ・攻撃の判断は cpuTurn 内の S.cpuLevel 分岐も参照。
+      // 達人はさらに、対戦開始時にデッキが大会優勝レシピ基盤へ差し替わり（decideFirst → buildMasterDeck）、
+      // 攻撃宣言は masterPickAttackers（リーサル以外は総攻撃しない・受けを残す）で選ぶ。
       function cpuAssignBlockers(attackers){
         if (S.cpuLevel === "master") return cpuAssignBlockersMaster(attackers);
         if (S.cpuLevel === "novice") return cpuAssignBlockersNovice(attackers);
@@ -9081,6 +9152,66 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (bs.length) assign.set(atk.uid, bs);
         });
         return assign;
+      }
+
+      // 達人の攻撃宣言（自分のターン）：調査で得た強い人の原則を数値化したもの。
+      //   ・勝敗はライフでなく盤面の枚数レース（ブロックされなかった攻撃がそのまま勝利に直結する）
+      //   ・相手が全アタッカーを必要体数ブロックできないなら全員で攻めて勝ち切る（リーサル）
+      //   ・リーサルでないときは総攻撃しない：相手の最強ブロッカーを一方的に倒せる攻撃、
+      //     2体以上を縛るプレッシャー攻撃、相手にイジンの受けが無いときのガーディアン削りだけを通す
+      //     （弱いアタッカーを強いブロッカーに当てて失う「無駄死に」をしない）
+      //   ・攻めたイジンは寝て受けに回れなくなるため、相手の次ターンの攻撃体数を受け止める枚数は残す
+      function masterPickAttackers(cands){
+        const G = S.G, C = G.C, P = G.P;
+        // 防御側が全アタッカーを必要体数ブロックできるか（枚数だけのシミュレーション。
+        // ブロックの成否はパワーでなく「必要体数を割り当てられるか」で決まる）
+        function canAllBeBlocked(list){
+          const used = new Set();
+          const guards = P.guardians.filter(function(g){ return !g.sleeping; }).map(function(g){ return g.uid; });
+          const sorted = list.slice().sort(function(a, b){ return pressureOf("C", a) - pressureOf("C", b); });
+          for (const atk of sorted){
+            const need = pressureOf("C", atk);
+            let got = 0;
+            for (const f of P.field){
+              if (got >= need) break;
+              if (used.has(f.uid) || !canBlockIjin("P", f)) continue;
+              if (effBlockerCount("C", "P", atk, [{ kind: "ijin", uid: f.uid, name: f.name }]) > 0){ used.add(f.uid); got++; }
+            }
+            while (got < need && guards.length){
+              const gid = guards[0];
+              if (effBlockerCount("C", "P", atk, [{ kind: "guardian", uid: gid }]) > 0){ guards.shift(); got++; }
+              else break; // ガーディアンの可否はアタッカーだけで決まるので、1体ダメなら全てダメ
+            }
+            if (got < need) return false;
+          }
+          return true;
+        }
+        if (!canAllBeBlocked(cands)) return cands; // 止めきれない攻撃がある＝勝ち筋。全員で攻める
+        const blockIjin = P.field.filter(function(f){ return canBlockIjin("P", f); });
+        const maxBlk = blockIjin.reduce(function(m, f){ return Math.max(m, blkPower("P", f)); }, 0);
+        let chosen = cands.filter(function(f){
+          const p = effPower("C", f);
+          if (pressureOf("C", f) >= 2) return true; // 2体以上を縛れる攻撃はそれ自体が圧になる
+          if (!blockIjin.length) return p >= 1;     // イジンの受けが無いならガーディアンを削れる（アタッカーは残る）
+          return p > maxBlk;                        // 最強ブロッカーを一方的に倒せる攻撃だけを通す
+        });
+        // 受けの確保：相手の次ターンの攻撃体数（現在のイジン全員＋召喚1体）を受け止める枚数を残す
+        const threat = P.field.length + 1;
+        function myBlockPool(list){
+          let n = C.guardians.filter(function(g){ return !g.sleeping; }).length;
+          C.field.forEach(function(f){
+            if (list.indexOf(f) >= 0){ if (hasKwEff("C", f, "ウォッチャー")) n++; } // 攻めても受けられる
+            else if (canBlockIjin("C", f)) n++;
+          });
+          return n;
+        }
+        chosen.sort(function(a, b){ return effPower("C", a) - effPower("C", b); }); // 弱い順に温存へ回す
+        while (chosen.length && myBlockPool(chosen) < threat){
+          const idx = chosen.findIndex(function(f){ return pressureOf("C", f) < 2; });
+          if (idx < 0) break; // プレッシャー持ちは圧の要なので外さない
+          chosen.splice(idx, 1);
+        }
+        return chosen;
       }
 
       // 見習いのブロック割り当て：割り当て自体はするが中身はランダム気味（強いイジンの無駄遣い・ガーディアンの早切りが起きる）
