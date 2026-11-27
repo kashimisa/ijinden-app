@@ -7700,7 +7700,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         setTicker("CPUのターンが始まった");
         showCallout("turnEnemy");
         renderBattle();
-        await wait(3000);
+        await wait(2500);
         if (C.deck.length === 0){ endGame("P", "CPUの山札が尽きた！"); return; }
         C.field.forEach(function(f){ f.sleeping = false; });
         C.guardians.forEach(function(g){ g.sleeping = false; });
@@ -7727,7 +7727,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         } else {
           log("CPUのターン（1ターン目）。先攻の初ターンはドローなし。", "sys");
         }
-        renderBattle(); await wait(3000);
+        renderBattle(); await wait(2500);
         // 長屋（メインフェイズ開始時）
         await nagayaTrigger("C");
         await mainPhaseStarters("C");
@@ -7807,7 +7807,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           showCallout("maryoku");
           await flyGhost(sidePoint("C"), zonePoint("C", "maryoku"), faceUp ? cardImg(card.name) : null, 820);
           setCpuHl([inst.uid]);
-          renderBattle(); await wait(3000);
+          renderBattle(); await wait(2500);
           if (faceUp) await fireOnMaryokuPlace("C", inst);
           renderBattle();
         }
@@ -7823,7 +7823,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             showCallout("haikei");
             await flyGhost(sidePoint("C"), zonePoint("C", "haikei"), cardImg(h.name), 820);
             setCpuHl([h.uid]);
-            renderBattle(); await wait(3000);
+            renderBattle(); await wait(2500);
             await fireOnHaikeiPlace("C", h);
             renderBattle();
           }
@@ -7858,7 +7858,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           showCallout("summon", "『" + cand.name + "』");
           await flyGhost(sidePoint("C"), zonePoint("C", "ijin"), cardImg(cand.name), 820);
           setCpuHl([ni.uid]);
-          renderBattle(); await wait(3000);
+          renderBattle(); await wait(2500);
           await fireOnSummon("C", ni);
           await notifyPlaced("C", ni, { viaSummon: true });
           await maybeEquip("C", ni);
