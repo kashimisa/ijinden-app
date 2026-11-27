@@ -1030,7 +1030,7 @@
         color:#ffd76e; background:rgba(217,171,60,.08); border:1.5px dashed rgba(199,164,90,.6);
         border-radius:12px; padding:12px 6px; margin:4px 0 6px;
       }
-      #net-code-input{ text-transform:uppercase; letter-spacing:.25em; font-weight:800; }
+      #net-code-input{ letter-spacing:.25em; font-weight:800; }
       .net-status-line{ font-weight:800; }
       .net-status-line .ok{ color:var(--good); }
       .net-status-line .wait{ color:var(--gold); }
@@ -1185,11 +1185,11 @@
           <h3 class="gundan-new-title">部屋を作る（ホスト）</h3>
           <button class="big-btn accent" id="btn-net-create" style="margin-top:6px;">部屋を作る</button>
           <div id="net-code-box" style="display:none;">
-            <p class="sub" style="margin:12px 0 4px;">接続コード</p>
-            <div class="net-code" id="net-code">------</div>
+            <p class="sub" style="margin:12px 0 4px;">あいことば（相手に教えてね）</p>
+            <div class="net-code" id="net-code">・・・</div>
           </div>
           <h3 class="gundan-new-title">部屋に入る（ゲスト）</h3>
-          <input class="search-in" id="net-code-input" type="text" maxlength="6" placeholder="コードを入力（6文字）" autocomplete="off" autocapitalize="characters" />
+          <input class="search-in" id="net-code-input" type="text" maxlength="3" placeholder="あいことば（ひらがな3文字）" autocomplete="off" autocapitalize="off" />
           <button class="big-btn" id="btn-net-join" style="margin-top:8px;">部屋に入る</button>
           <p class="sub net-status-line" id="net-status" style="margin-top:14px;">接続状態：<span class="wait">未接続</span></p>
           <p class="sub">※一部演出は相手側で簡略表示。切断時の再接続は未対応。</p>
@@ -1514,6 +1514,7 @@
         <h2 class="mincho" style="margin-top:0;">接続が切れました</h2>
         <p id="netlost-body">相手との接続が切れたため、この対戦は続けられません。</p>
         <button class="big-btn accent" id="btn-netlost-title">タイトルへもどる</button>
+        <button class="ghost-btn" id="btn-netlost-back">対戦画面にもどる</button>
       </div>
     </div>
 
@@ -8261,6 +8262,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBattle();
       }
       async function cpuTurn(first){
+        // 再発防止ガード：CPUのAIが動くのはCPU戦だけ。オンライン・2人戦では絶対に相手を代行しない。
+        if (S.gameMode !== "cpu") return;
         const G = S.G, C = G.C;
         G.mode = "busy"; G.turn = "C"; G.selHandUid = null;
         G.turnSeq = (G.turnSeq || 0) + 1;
@@ -8554,7 +8557,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         G.skipEndPhase = false;
         if (G.over) return;
         if (G.turn === "P"){
-          if (S.gameMode === "2p") beginTurn("C", false);
+          // オンライン対戦では相手（C）は人間：CPUに代行させず、相手の操作を待つターンとして始める。
+          // ここで cpuTurn() を呼ぶと、相手が選んでいないカードが勝手に出てしまう。
+          if (S.gameMode === "2p" || S.gameMode === "online") beginTurn("C", false);
           else cpuTurn();
         } else {
           G.round++;
@@ -9984,11 +9989,29 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
          第2段階：スナップショットに「直前に起きた出来事のイベント列」を添え、
          ゲストはイベントを短縮版で順番に再演してから最新状態に合わせる。 */
       const NET_PREFIX = "ijinden-duel-";
+      /* 部屋のあいことば：ひらがな3文字（小さい文字・を・んは除いた44文字から） */
+      const NET_HIRA = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ";
       function netGenCode(){
-        const chars = "abcdefghjkmnpqrstuvwxyz23456789";
         let s = "";
-        for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+        for (let i = 0; i < 3; i++) s += NET_HIRA[Math.floor(Math.random() * NET_HIRA.length)];
         return s;
+      }
+      /* PeerJSのIDは英数字で渡す必要があるため、ひらがなを番号に変換して内部IDにする（画面に出るのはひらがなだけ） */
+      function netPeerId(code){
+        const nums = [];
+        for (const ch of code) nums.push(String(NET_HIRA.indexOf(ch)).padStart(2, "0"));
+        return NET_PREFIX + "h" + nums.join("");
+      }
+      /* ゲスト入力の正規化：カタカナ→ひらがな、空白を除去 */
+      function netNormalizeCode(v){
+        return String(v || "").replace(/\s+/g, "").replace(/[ァ-ヶ]/g, function(c){
+          return String.fromCharCode(c.charCodeAt(0) - 0x60);
+        });
+      }
+      function netValidCode(code){
+        if (!code || code.length !== 3) return false;
+        for (const ch of code) if (NET_HIRA.indexOf(ch) < 0) return false;
+        return true;
       }
       function netSwapKey(k){ return k === "P" ? "C" : (k === "C" ? "P" : null); }
       function setOnlineStatus(cls, text){
@@ -10002,7 +10025,23 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         pill.textContent = text;
         pill.classList.toggle("bad", cls === "bad");
       }
+      /* ICE の "disconnected" は回線の一時的な揺らぎでも頻繁に起き、そのまま回復することも多い。
+         即「切断」としてタイトル行きのモーダルを出すと、対戦中にしょっちゅうタイトルへ戻される
+         体感になるため、まずは「再接続中…」表示で猶予を持ち、回復したら何事もなく続行する。
+         猶予（12秒）を過ぎても回復しない場合だけ、本当の切断として扱う。 */
+      let netIceTimer = null;
+      function netIceWobble(){
+        if (NET._leaving || !NET.role || NET.over) return;
+        if (netIceTimer) return;
+        setPill("再接続中…", "bad");
+        netIceTimer = setTimeout(function(){ netIceTimer = null; netLost(); }, 12000);
+      }
+      function netIceRecovered(){
+        if (netIceTimer){ clearTimeout(netIceTimer); netIceTimer = null; }
+        if (NET.role && !NET._leaving && NET.conn){ NET.connected = true; setPill("接続中", ""); }
+      }
       function netLost(){
+        if (netIceTimer){ clearTimeout(netIceTimer); netIceTimer = null; }
         if (NET._leaving || !NET.role) return;
         NET.connected = false;
         setPill("切断", "bad");
@@ -10338,13 +10377,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.disconnect();
           NET.role = "host"; S.gameMode = "online"; NET._retried = false;
           NET.code = netGenCode();
-          $("net-code").textContent = NET.code.toUpperCase();
+          $("net-code").textContent = NET.code;
           $("net-code-box").style.display = "";
           setOnlineStatus("wait", "部屋を作成中…");
           NET._hostPeer();
         },
         _hostPeer: function(){
-          const peer = new Peer(NET_PREFIX + NET.code);
+          const peer = new Peer(netPeerId(NET.code));
           NET.peer = peer;
           peer.on("open", function(){ setOnlineStatus("wait", "接続待ち"); });
           peer.on("connection", function(conn){
@@ -10355,15 +10394,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         },
         joinRoom: function(){
           if (typeof Peer === "undefined"){ setOnlineStatus("bad", "通信ライブラリの読み込みに失敗"); return; }
-          const raw = $("net-code-input").value.trim().toLowerCase();
-          if (raw.length !== 6){ setOnlineStatus("bad", "コードは6文字"); return; }
+          const raw = netNormalizeCode($("net-code-input").value);
+          if (!netValidCode(raw)){ setOnlineStatus("bad", "あいことばはひらがな3文字"); return; }
           NET.disconnect();
           NET.role = "guest"; S.gameMode = "online"; NET.code = raw;
           setOnlineStatus("wait", "部屋に接続中…");
           const peer = new Peer();
           NET.peer = peer;
           peer.on("open", function(){
-            const conn = peer.connect(NET_PREFIX + NET.code, { reliable: true });
+            const conn = peer.connect(netPeerId(NET.code), { reliable: true });
             NET._bindConn(conn);
           });
           peer.on("error", function(err){ NET._peerError(err); });
@@ -10375,7 +10414,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           } else if (t === "unavailable-id" && NET.isHost() && !NET._retried){
             NET._retried = true;
             NET.code = netGenCode();
-            $("net-code").textContent = NET.code.toUpperCase();
+            $("net-code").textContent = NET.code;
             try { NET.peer.destroy(); } catch(e){}
             NET._hostPeer();
           } else if (t === "network" || t === "server-error"){
@@ -10387,16 +10426,21 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         _bindConn: function(conn){
           NET.conn = conn;
           conn.on("open", function(){
+            netIceRecovered();
             NET.connected = true;
             setOnlineStatus("ok", "接続済み！");
             setPill("接続中", "");
             renderLobby();
             show("scr-lobby");
           });
-          conn.on("data", function(data){ NET._onData(data); });
+          conn.on("data", function(data){ netIceRecovered(); NET._onData(data); });
           conn.on("close", function(){ netLost(); });
           conn.on("error", function(){ netLost(); });
-          conn.on("iceStateChanged", function(st){ if (st === "disconnected" || st === "closed" || st === "failed") netLost(); });
+          conn.on("iceStateChanged", function(st){
+            if (st === "disconnected") netIceWobble();          // 一時的な揺らぎ：即切断にしない
+            else if (st === "connected" || st === "completed") netIceRecovered();
+            else if (st === "closed" || st === "failed") netLost();
+          });
         },
         disconnect: function(){
           NET._leaving = true;
@@ -10409,6 +10453,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           NET.evBuf = []; NET._prevSent = null; NET.stateQueue = []; NET._fxBusy = false;
           if (NET.stateTimer){ clearTimeout(NET.stateTimer); NET.stateTimer = null; }
           if (NET.defTimer){ clearTimeout(NET.defTimer); NET.defTimer = null; }
+          if (netIceTimer){ clearTimeout(netIceTimer); netIceTimer = null; }
           S.gameMode = "cpu"; S.G = null;
           const pill = $("net-pill"); if (pill) pill.style.display = "none";
           const cb = $("net-code-box"); if (cb) cb.style.display = "none";
@@ -10645,6 +10690,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       $("btn-netlost-title").addEventListener("click", function(){
         $("overlay-netlost").classList.remove("on");
         NET.disconnect(); show("scr-mode");
+      });
+      $("btn-netlost-back").addEventListener("click", function(){
+        // 切断表示を閉じて対戦画面に戻る（接続が実は生きていた場合、そのまま対戦を続けられる）
+        $("overlay-netlost").classList.remove("on");
       });
       $("btn-net-create").addEventListener("click", function(){ NET.createRoom(); });
       $("btn-net-join").addEventListener("click", function(){ NET.joinRoom(); });
