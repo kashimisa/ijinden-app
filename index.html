@@ -373,8 +373,8 @@
       .callout.show{ animation:callout-pop 1.1s ease-out forwards; }
       .callout.big{ width:min(96vw,700px); }
       .callout.show.big{ animation:callout-pop 1.9s ease-out forwards; }
-      /* 説明文つきの効果コールアウトは読めるよう長めに出す（約2.4秒。JS側の表示時間と一致させる） */
-      .callout.show.slow{ animation:callout-pop 2.4s ease-out forwards; }
+      /* 説明文つきの効果コールアウトは読めるよう長めに出す（約4.2秒。JS側の表示時間と一致させる） */
+      .callout.show.slow{ animation:callout-pop 4.2s ease-out forwards; }
       .callout-tx{
         font-family:"Shippori Mincho B1", serif; font-weight:800; font-size:clamp(2.6rem,13vw,4.6rem);
         color:#fff; letter-spacing:.04em; line-height:1.1;
@@ -392,7 +392,7 @@
       @media (prefers-reduced-motion: reduce){
         .callout.show{ animation:callout-fade 1.1s linear forwards; }
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
-        .callout.show.slow{ animation:callout-fade 2.4s linear forwards; }
+        .callout.show.slow{ animation:callout-fade 4.2s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
       /* 対戦開始イントロ（合計約3秒）：レイヤーは「土台＋霧の層×8＋ロゴ」に分ける。
@@ -602,7 +602,14 @@
       .grave-empty{ color:var(--ink2); font-size:.85rem; padding:12px 0 4px; text-align:center; }
       .fx-thumb{ width:42px; aspect-ratio:563/786; object-fit:cover; border-radius:5px; flex:none; border:1px solid var(--line); background:#20242e; }
       /* 選択肢内の「拡大」チップ：行タップ＝確定と区別するため、拡大はこの小さなチップだけに寄せる */
-      .fx-zoom{ flex:none; font-size:.68rem; font-weight:900; color:var(--accent); border:1.5px solid var(--accent); border-radius:999px; padding:7px 10px; background:var(--panel); line-height:1; }
+      .fx-zoom{ flex:none; display:inline-flex; align-items:center; min-height:36px; font-size:.68rem; font-weight:900; color:var(--accent); border:1.5px solid var(--accent); border-radius:999px; padding:7px 13px; background:var(--panel); line-height:1; }
+      /* カードタップの取りこぼし対策：カード内の画像・チップ・バッジはタップ判定を持たず、判定をカード本体に集約する。
+         あわせてタップ操作の遅延・スクロール誤認を減らす（touch-action） */
+      .mini img.ci, .hand-card img.ci, .mini .pow-chip, .hand-card .pow-chip, .mini .eq-badge, .mini .blk-badge, .mini .atk-badge, .mini .slp-badge, .mini .astat-badge, .mini .anum-badge, .mini .asgn-badge, .mini .gnum-badge{ pointer-events:none; }
+      .mini, .hand-card, .grave-row, .ds-card, .fx-opt{ touch-action:manipulation; }
+      .mini img.ci, .hand-card img.ci{ -webkit-user-drag:none; }
+      .mini[data-zoomname]{ cursor:pointer; }
+      .grave-row{ cursor:pointer; }
       .fx-card{ max-height:94dvh; display:flex; flex-direction:column; }
       .fx-card > *{ flex:none; }
       .fx-card .fx-opts{ flex:0 1 auto; min-height:0; }
@@ -627,7 +634,6 @@
       #overlay-first .big-btn:disabled{ opacity:1; }
       .result-card{ background:var(--panel); color:var(--ink); border-radius:18px; padding:28px 22px; text-align:center; max-width:340px; width:100%; box-shadow:var(--shadow); }
       .result-card .r-emoji{ font-size:2.6rem; }
-      .result-img{ width:88%; height:auto; display:block; margin:0 auto 2px; }
       .result-card h2{ font-size:1.7rem; margin:.2em 0 .3em; }
       .result-card p{ color:var(--ink2); font-size:.85rem; line-height:1.7; margin:0 0 6px; }
       .hidden{ display:none !important; }
@@ -1623,8 +1629,7 @@
     <!-- result overlay -->
     <div class="overlay" id="overlay-result">
       <div class="result-card">
-        <img class="result-img hidden" id="result-img" alt="" />
-        <div class="r-emoji" id="result-emoji">🏆</div>
+        <div class="r-emoji hidden" id="result-emoji">🏆</div>
         <h2 class="mincho" id="result-title">勝利！</h2>
         <p id="result-desc"></p>
         <button class="big-btn accent" id="btn-rematch">もう一度対戦する</button>
@@ -6997,7 +7002,19 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       let uidSeq = 1;
       function mkInst(name){ return { uid: uidSeq++, name: name }; }
       function shuffle(a){ for (let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
-      function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+      function delayMs(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+      /* 対戦の進行用ウェイト：指定時間に加え、効果説明コールアウトが表示中／順番待ちの間は
+         次の行動（特にCPUの次の手）へ進まない。説明を読み終わってから対戦が再開する */
+      function wait(ms){ return delayMs(ms).then(function(){ return waitFxIdle(); }); }
+      function waitFxIdle(){
+        const t0 = Date.now();
+        return new Promise(function(res){
+          (function chk(){
+            if (typeof coActive === "undefined" || (!coActive && !coQueue.length) || !S.G || S.G.over || Date.now() - t0 > 30000) return res();
+            setTimeout(chk, 160);
+          })();
+        });
+      }
       // CPUが今出した／使ったカードのハイライト（uid配列）。静止した金枠で示す
       function setCpuHl(uids){ if (S.G) S.G.hlUids = uids || []; }
       // カードの移動を目で追えるようにするゴースト飛行（ドロー演出と同じ仕組み）
@@ -7211,11 +7228,65 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       const CALLOUT_TX = { attack: "攻撃！", draw: "ドロー！", summon: "イジン召喚！", haikei: "ハイケイ配置！", maryoku: "魔力配置！", meifu: "冥府発動！", fukugen: "復元！", hakai: "破壊！", kouka: "効果発動！", block: "ブロック！", turnPlayer: "あなたのターン", turnEnemy: "相手のターン", sokuou: "即応！", double: "ダブルプレッシャー！", stand: "スタンド！", soubi: "装備！", dive: "ダイブトゥイジンデン！" };
       let calloutTimer = null;
       let calloutChainTimer = null;
+      /* 効果説明つきコールアウトの表示時間：約2.4秒でも読み切れなかったため約4.2秒に延長（CSSの .slow と一致させる）。
+         表示中は wait() 経由の対戦進行が止まり（waitFxIdle）、連続する効果はキューで順番に表示する */
+      const FX_READ_MS = 4200;
+      const CO_NORMAL_MS = 1150;
+      const coQueue = [];   // 順番待ちのコールアウト {kind, sub, opts, dur, fx, res}
+      let coActive = null;  // 現在表示中のコールアウト
+      function coSameFx(a, b){ return !!a && !!b && a.kind === b.kind && (a.sub || "") === (b.sub || ""); }
+      function displayCallout(item){
+        const el = $("callout");
+        if (!el || !S.G || S.G.over){ item.res(); drainCallouts(); return; }
+        coActive = item;
+        FXANN.anyAt = Date.now(); FXANN.anyKind = item.kind;
+        const im = $("callout-img"), tx = $("callout-tx"), sb = $("callout-sub");
+        im.onerror = function(){ im.classList.add("hidden"); tx.textContent = CALLOUT_TX[item.kind] || ""; };
+        if (im.getAttribute("src") !== CALLOUT_IMG[item.kind]) im.src = CALLOUT_IMG[item.kind];
+        im.classList.remove("hidden");
+        tx.textContent = "";
+        sb.textContent = item.sub || "";
+        el.classList.toggle("big", !!(item.opts && item.opts.big));
+        el.classList.toggle("slow", !!item.fx);
+        el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+        // オンライン対戦：コールアウトはイベントとして記録し、次の状態スナップショットと一緒にゲストへ送る（ゲスト側で順番に再演する）
+        if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: item.kind, sub: item.sub || "" }); NET.queueState(); }
+        if (calloutTimer) clearTimeout(calloutTimer);
+        if (calloutChainTimer) clearTimeout(calloutChainTimer);
+        calloutTimer = setTimeout(function(){
+          el.classList.remove("show");
+          const doneItem = coActive; coActive = null;
+          if (doneItem) doneItem.res();
+          drainCallouts(); // 順番待ちがあれば、前の説明を最後まで見せてから次を出す
+        }, item.dur);
+        // opts.next: 続けて別のコールアウトへつなぐ（攻撃→即応→ダブルプレッシャーのような多段チェーンも可）
+        if (item.opts && item.opts.next){
+          const nx = item.opts.next;
+          calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || CO_NORMAL_MS, next: nx.next || null, gap: nx.gap }); }, (item.opts.gap != null ? item.opts.gap : 700));
+        }
+      }
+      function drainCallouts(){
+        if (coActive) return;
+        while (coQueue.length){
+          const nx = coQueue.shift();
+          if (!S.G || S.G.over){ nx.res(); continue; }
+          displayCallout(nx);
+          return;
+        }
+      }
+      function cancelActiveCallout(){
+        if (calloutTimer) clearTimeout(calloutTimer);
+        if (calloutChainTimer) clearTimeout(calloutChainTimer);
+        calloutTimer = null; calloutChainTimer = null;
+        if (coActive){ const a = coActive; coActive = null; a.res(); }
+        while (coQueue.length) coQueue.shift().res();
+        const co = $("callout"); if (co) co.classList.remove("show");
+      }
       /* ---- 効果説明コールアウト ----
          タマル王のドロー封じで好評だった「効果発動！＋一言説明」の見せ方を、他のカードの効果発動でも出すための仕組み。
          効果の解決はほぼすべて log() に「「カード名」の能力：…」「「カード名」：…」「◯◯の「カード名」の遺業…」
          のような文で記録されるので、log をフックして該当する文を拾い、その文をそのまま説明として表示する。
-         連続発動で画面が埋まらないよう間引きし、攻撃・ドロー等のコールアウトが出た直後は割り込まない */
+         連続発動しても間引かず、showCallout のキューで1つずつ順番に表示する（まったく同じ説明の重複だけ除く） */
       var FXANN = { at: 0, anyAt: 0, anyKind: "", last: "" };
       function maybeFxCallout(msg){
         if (typeof FXANN === "undefined" || !S.G || S.G.over || typeof msg !== "string") return;
@@ -7223,43 +7294,45 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const fxOv = $("overlay-fx");
         if (fxOv && fxOv.classList.contains("on")) return; // 効果の選択モーダルが開いている間は、その裏で出さない
         if (!/(「[^」]{1,24}」の(能力|効果|遺業)|^「[^」]{1,24}」[：！]|マホウ「[^」]{1,24}」を使った|^遺業【)/.test(msg)) return;
-        const now = Date.now();
-        if (now - FXANN.at < 2700) return;    // 効果が連続しても表示は1つずつ（効果コールアウトの表示は約2.4秒。間引かれた分は対戦ログで読み返せる）
-        if (now - FXANN.anyAt < 750) return;  // 直前に別のコールアウト（攻撃・ドロー・タマル王の明示表示等）があったら潰さない
         let sub = msg.replace(/。$/, "");
-        if (sub.length > 56) sub = sub.slice(0, 56) + "…"; // 表示が長くなったぶん、説明も少し長く載せる
-        if (!sub || sub === FXANN.last) return;
-        FXANN.at = now; FXANN.last = sub;
+        if (sub.length > 76) sub = sub.slice(0, 76) + "…"; // 表示が長くなったぶん、説明も少し長く載せる
+        if (!sub) return;
         showCallout("kouka", sub);
       }
+      /* コールアウト表示。Promiseを返し、そのコールアウトの表示が終わったら解決する。
+         効果説明（fx）が表示されている間に来たコールアウトは割り込まずキューに入り、順番に表示する。
+         通常コールアウト同士は従来どおり即時表示（上書き）でテンポを保つ */
       function showCallout(kind, sub, opts){
-        const el = $("callout"); if (!el || !S.G || S.G.over) return;
+        if (!S.G || S.G.over) return Promise.resolve();
         // 対戦開始の「ダイブトゥイジンデン！」（opts.big）は通常のコールアウトではなく霧のイントロ演出で大きく見せる
         if (kind === "dive" && opts && opts.big) return playDiveIntro(opts);
-        FXANN.anyAt = Date.now(); FXANN.anyKind = kind;
-        const im = $("callout-img"), tx = $("callout-tx"), sb = $("callout-sub");
-        im.onerror = function(){ im.classList.add("hidden"); tx.textContent = CALLOUT_TX[kind] || ""; };
-        if (im.getAttribute("src") !== CALLOUT_IMG[kind]) im.src = CALLOUT_IMG[kind];
-        im.classList.remove("hidden");
-        tx.textContent = "";
-        sb.textContent = sub || "";
-        // 説明文（sub）つきの効果系コールアウトは、読めるよう通常（約1.15秒）より長く出す（約2.4秒）。
-        // 表示時間と CSS の .slow アニメーション（2.4秒）は揃えてある
+        const el = $("callout"); if (!el) return Promise.resolve();
+        // 説明文（sub）つきの効果系コールアウトは、読めるよう通常（約1.15秒）より長く出す（約4.2秒）。
+        // 表示時間と CSS の .slow アニメーション（4.2秒）は揃えてある
         const fxSlow = !(opts && opts.dur) && !!sub && (kind === "kouka" || kind === "fukugen" || kind === "meifu" || sub.length >= 16);
-        const coDur = (opts && opts.dur) || (fxSlow ? 2400 : 1150);
-        el.classList.toggle("big", !!(opts && opts.big)); // opts.big: 対戦開始ロゴなど、通常より大きく長く出す
-        el.classList.toggle("slow", fxSlow);
-        el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
-        // オンライン対戦：コールアウトはイベントとして記録し、次の状態スナップショットと一緒にゲストへ送る（ゲスト側で順番に再演する）
-        if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: kind, sub: sub || "" }); NET.queueState(); }
-        if (calloutTimer) clearTimeout(calloutTimer);
-        if (calloutChainTimer) clearTimeout(calloutChainTimer);
-        calloutTimer = setTimeout(function(){ el.classList.remove("show"); }, coDur);
-        // opts.next: 続けて別のコールアウトへ短く切り替える（攻撃→即応→ダブルプレッシャーのような多段チェーンも可）
-        if (opts && opts.next){
-          const nx = opts.next;
-          calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
+        const coDur = (opts && opts.dur) || (fxSlow ? FX_READ_MS : CO_NORMAL_MS);
+        const isFx = fxSlow || coDur >= 2000; // ゲスト再演など明示時間つきの長め表示も「効果説明」として扱う
+        let resFn = null;
+        const p = new Promise(function(r){ resFn = r; });
+        const item = { kind: kind, sub: sub || "", opts: opts || null, dur: coDur, fx: isFx, res: resFn };
+        if (isFx){
+          // 表示中・順番待ちとまったく同じ説明は積まない（全文は対戦ログで読み返せる）
+          if (coActive && coSameFx(coActive, item)){ resFn(); return p; }
+          for (let i = 0; i < coQueue.length; i++){ if (coSameFx(coQueue[i], item)){ resFn(); return p; } }
         }
+        if (coActive && coActive.fx){
+          // 効果説明の表示中は割り込まない：順番待ちに入れて、前の説明が終わってから出す
+          if (coQueue.length < 4) coQueue.push(item); else resFn();
+          return p;
+        }
+        if (coActive && isFx){
+          // 通常コールアウト表示中に効果説明が来たら、短い方（最大約1.2秒）が終わってから出す
+          if (coQueue.length < 4) coQueue.push(item); else resFn();
+          return p;
+        }
+        if (coActive){ const prev = coActive; coActive = null; prev.res(); }
+        displayCallout(item);
+        return p;
       }
       /* ---- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（8層）と、別レイヤーの透過ロゴが
          押した瞬間に即表示される。ロゴは小さめからゆっくりなめらかに大きくなり、一番大きくなったところで
@@ -7293,9 +7366,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (next) setTimeout(function(){ showCallout(next.kind, next.sub, { dur: next.dur || 1150, next: next.next || null, gap: next.gap }); }, 700);
           return Promise.resolve();
         }
-        if (calloutTimer) clearTimeout(calloutTimer);
-        if (calloutChainTimer) clearTimeout(calloutChainTimer);
-        const co = $("callout"); if (co) co.classList.remove("show");
+        cancelActiveCallout();
         diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
         if (diveIntroResolve){ const r0 = diveIntroResolve; diveIntroResolve = null; r0(); }
         const rm = reducedMotion();
@@ -7712,6 +7783,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("overlay-zoom").classList.add("on");
       }
       $("btn-zoom-close").addEventListener("click", function(){ $("overlay-zoom").classList.remove("on"); });
+      /* 場・魔力ゾーンの公開カードの拡大表示はイベント委譲で受ける。
+         盤面は対戦中に何度も描き直されるため、要素ごとのリスナーだけだと
+         「タップの最中に要素が差し替わって反応しない」ことがある。委譲なら差し替え後でも届く */
+      document.addEventListener("click", function(e){
+        const t = (e.target && e.target.closest) ? e.target.closest("[data-zoomname]") : null;
+        if (!t) return;
+        if ($("overlay-zoom").classList.contains("on")) return;
+        showZoom(t.getAttribute("data-zoomname"));
+      });
 
       /* ---- 墓地ビューア（墓地は公開情報：両陣営とも全内容を見られる） ---- */
       function showGraveViewer(sideKey, fromFx){
@@ -7735,6 +7815,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             const tx = document.createElement("div"); tx.className = "gr-tx";
             tx.innerHTML = '<div class="gr-name">「' + g.name + '」</div>' + (c ? '<div class="gr-meta">' + classOf(c) + " ・ " + c.color + "色 ・ Lv" + c.level + (c.type === "I" ? " ・ パワー " + c.power : "") + "</div>" : "");
             row.appendChild(tx);
+            row.addEventListener("click", function(){ showZoom(g.name); }); // 墓地のカードもタップで詳細（拡大表示）を開く
             list.appendChild(row);
           });
         }
@@ -8497,6 +8578,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           b.addEventListener("click", function(){ fxHide(); triggerNagayaNow(sideKey); });
           box.appendChild(b);
         }
+        const zoomB = document.createElement("button");
+        zoomB.className = "fx-opt";
+        zoomB.innerHTML = "<b>カードを拡大して見る</b><span>カード画像と効果テキストを大きく表示する</span>";
+        zoomB.addEventListener("click", function(){ showZoom(h.name); });
+        box.appendChild(zoomB);
         const close = document.createElement("button");
         close.className = "fx-opt";
         close.innerHTML = "<b>閉じる</b>";
@@ -9761,10 +9847,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         closeLog(); // 決着時はログを閉じて結果表示を優先する
         G.over = true; G.mode = "over";
         renderBattle();
-        // 結果画面には書道風の勝敗イラスト文字を出す（CPU戦の敗北時のみ「敗北」、それ以外は「勝利」）
-        const rimg = $("result-img");
-        rimg.src = (S.gameMode !== "2p" && winner !== "P") ? "assets/callout_lose.png" : "assets/callout_win.png";
-        rimg.classList.remove("hidden");
+        // 結果パネルはテキスト見出しのみ（書道風の勝敗イラストは決着演出＝playResultIntro でのみ大きく出す）
         $("result-emoji").classList.add("hidden");
         const win = winner === "P";
         if (S.gameMode !== "online"){ $("btn-rematch").style.display = ""; $("btn-to-build2").style.display = ""; }
@@ -9839,6 +9922,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           addBadge();
         }
         if (opts.onTap) { div.classList.add("tappable"); div.addEventListener("click", opts.onTap); }
+        else if (opts.zoomName) { div.classList.add("tappable"); div.dataset.zoomname = opts.zoomName; } // 拡大表示は document 側の委譲リスナーで受ける（再描画で要素が差し替わっても取りこぼさない）
         return div;
       }
       function backCard(label, cls, onTap){
@@ -9971,7 +10055,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             // 防御フェイズ中：割り当てできる自分のイジンは緑枠、ブロックできないイジンと攻撃側の非アタッカーは暗くして選択肢を目で分かるようにする
             if (G.mode === "defense" && sideKey === defKey && myAi === undefined) cls += canBlockIjin(sideKey, f) ? " def-can" : " def-dim";
             if (G.mode === "defense" && sideKey === atkKey && !isAtk) cls += " def-dim";
-            const el = miniCard({ name: f.name, cls: cls, badge: badge, badgeCls: badgeCls, power: effPower(sideKey, f), onTap: function(){ onFieldTap(sideKey, f); } });
+            // アタッカー選択中だけタップ＝選択。それ以外はタップ＝カード詳細（拡大表示）に一本化する
+            const canSelectAtk = (G.mode === "attackSelect" && sideKey === G.turn);
+            const el = miniCard({ name: f.name, cls: cls, badge: badge, badgeCls: badgeCls, power: effPower(sideKey, f),
+              onTap: canSelectAtk ? function(){ onFieldTap(sideKey, f); } : null,
+              zoomName: canSelectAtk ? null : (f.faceDown ? null : f.name) });
             el.dataset.uid = f.uid;
             // 割り当て番号バッジ：何番のアタッカーを守っているか（アタッカー側の赤い番号と対応）
             if (myAi !== undefined){ const s = document.createElement("span"); s.className = "asgn-badge"; s.textContent = myAi + 1; el.appendChild(s); }
@@ -10026,7 +10114,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             // 防御フェイズ中、スタンドできない魔力ゾーンのカードはタップできないので暗くする（スタンド可のものだけ金枠で残す）
             const dimCls = (G.mode === "defense" && !(sideKey === defKey && !m.faceUp && standEligible(sideKey, m))) ? " def-dim" : "";
             if (m.faceUp){
-              const el = miniCard({ name: m.name, cls: "maryoku" + hlCls + dimCls });
+              const el = miniCard({ name: m.name, cls: "maryoku" + hlCls + dimCls, zoomName: m.name }); // 表向きマリョクもタップで詳細（拡大表示）を開く
               if (side.field.some(function(f){ return f.equipUid === m.uid; })){
                 const s = document.createElement("span"); s.className = "eq-badge"; s.textContent = "⚔装備中"; el.appendChild(s);
               }
@@ -10305,8 +10393,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (c.type === "I"){ const chip = document.createElement("span"); chip.className = "pow-chip"; chip.textContent = "P" + c.power; b.appendChild(chip); }
         } else fillText();
         b.addEventListener("click", function(){
-          if (G.mode !== "main" || G.turn !== VK) return;
-          G.selHandUid = (G.selHandUid === h.uid) ? null : h.uid;
+          // 行動を選べない場面（相手ターン・防御中など）と、選択中カードの再タップは「詳細を見る」として拡大表示を開く
+          // （以前はどちらの場合も無反応で、詳細を見たくて押しても反応しないように見えた）
+          if (G.mode !== "main" || G.turn !== VK || G.selHandUid === h.uid){ showZoom(h.name); return; }
+          G.selHandUid = h.uid;
           renderBattle();
         });
         return b;
@@ -10439,6 +10529,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           addBtn("使う（コスト"+mahouCostOf(G.turn, c)+"）", function(){ playerUseMahou(h.uid); }, use.ok && mahouPayableCount(G.turn) >= mahouCostOf(G.turn, c) && !mahouBlocked(G.turn) && P.noMahouSeq !== G.turnSeq && !socratesBlocked(G.turn), "go",
             mahouBlocked(G.turn) ? "ピラーの効果で、あなたはマホウを使えない。" : (P.noMahouSeq === G.turnSeq ? "「リンボ」の効果で、このターンはマホウを使えない。" : (socratesBlocked(G.turn) ? "「ソクラテス」の効果で、このターンはもうマホウ・ハイケイを使えない。" : (mahouPayableCount(G.turn) < mahouCostOf(G.turn, c) ? "魔力コスト分のマリョクが無い（「ルター」がいる間は裏向きをコストにできない）。" : useWhy))));
         }
+        const zb = document.createElement("button");
+        zb.textContent = "カードを拡大";
+        zb.addEventListener("click", function(){ showZoom(h.name); });
+        btns.appendChild(zb);
         const close = document.createElement("button");
         close.textContent = "閉じる";
         close.addEventListener("click", function(){ G.selHandUid = null; renderBattle(); });
@@ -10856,8 +10950,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         for (const raw of evs){
           if (!S.G || S.G.over || NET.over || !NET.started) return;
           const e = netSwapEv(raw);
-          const cap = (e.k === "callout" && e.kind === "dive") ? 3300 : 1600; // ダイブの霧イントロだけ長めに待つ（合計約3秒＋余裕）
-          try { await Promise.race([guestFxOne(e), wait(cap)]); } catch(err){}
+          const isFxCo = e.k === "callout" && !!e.sub && (e.kind === "kouka" || e.kind === "fukugen" || e.kind === "meifu");
+          const cap = (e.k === "callout" && e.kind === "dive") ? 3300 : (isFxCo ? 3100 : 1600); // ダイブの霧イントロと効果説明だけ長めに待つ
+          try { await Promise.race([guestFxOne(e), delayMs(cap)]); } catch(err){}
         }
       }
       function guestFxOne(e){
@@ -10867,8 +10962,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (lt && e.kind !== "dive") log(lt, (e.kind === "kouka" || e.kind === "fukugen" || e.kind === "meifu") ? "" : "sys");
           // 効果の説明つきコールアウトはゲスト側でも読めるよう長めに出し、再演の間隔も空ける
           const fxRead = (e.kind === "kouka" || e.kind === "fukugen" || e.kind === "meifu") && !!e.sub;
-          const p = showCallout(e.kind, e.sub || "", { dur: fxRead ? 1500 : 520, big: e.kind === "dive" });
-          return (p && typeof p.then === "function") ? p : wait(fxRead ? 1250 : 460); // ダイブは霧イントロの完了まで待ってから次の再演へ
+          const p = showCallout(e.kind, e.sub || "", { dur: fxRead ? 2900 : 520, big: e.kind === "dive" });
+          return (p && typeof p.then === "function") ? p : delayMs(fxRead ? 2700 : 460); // ダイブは霧イントロの完了まで待ってから次の再演へ
         }
         if (e.k === "draw") return guestFxDraw(e.side, e.n);
         if (e.k === "place"){ if (e.name) log(whoName(e.side) + "は「" + e.name + "」を置いた。", "sys"); return guestFxPlace(e); }
