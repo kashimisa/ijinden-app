@@ -9,10 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
-    <!-- DARK SUMI遷移の層PNGを先読みし、タップ直後から滑らかに始まるようにする -->
-    <link rel="preload" as="image" href="assets/darksumi_deep.png" />
-    <link rel="preload" as="image" href="assets/darksumi_mid.png" />
-    <link rel="preload" as="image" href="assets/darksumi_gold.png" />
     <!-- 対戦開始イントロの墨雲画像はページ読み込み時に先読みし、「始める」を押した瞬間に表示できるようにする -->
     <link rel="preload" as="image" href="assets/dive_fogbg.jpg" />
     <style>
@@ -76,48 +72,28 @@
       @media (prefers-reduced-motion: reduce){ #btn-mode-cpu, #btn-mode-cpu:active{ transition:none; } }
       /* 軍団編成ボタン：Diveボタンと同じ pill 画像ボタン。少し小さくして格の違いを出す */
       #scr-mode .gundan-btn{ display:block; width:88%; margin:16px auto 2px; }
-      /* ---------- ダイブ演出「DARK SUMI」動作試作（タイトル→デッキ選択の入口だけ。合計3.0秒・タップでスキップ可） ----------
-         みさの参考画像から抽出した層PNG 3枚（assets/darksumi_deep.png＝深い黒の溜まり、
-         darksumi_mid.png＝灰色のにじみ・墨の渦（薄い外周のハローを削り筆のかすれ・毛先を残したv2版）、
-         darksumi_gold.png＝金の川＋金粉）を
-         濃紺（#080B12〜#111A2D の縦グラデーション）の上に重ねる。3層を重ねた静止画が
-         デザイン基準（darksumi_still_v3）。白・ホワイトアウトは一切使わない。
-         動きは層ごとに独立させる（絵全体を一枚として動かすのは禁止）。にじみ・渦の層は
-         同じ素材を3枚に分け、渦の中心ごとに transform-origin・速度・方向・回転量をずらして
-         流す／わずかに回転させる（全層同方向・同速度は禁止）。scale の膨張は最小限にし、
-         主に移動と回転で見せる（灰色のにじみを煙のように膨らませない、強いぼかしも使わない）。
-         金の川には、金の層の形でマスクした柔らかい光の帯が一回だけゆっくり通過する
-         （発光・フラッシュ・電流のような光らせ方は禁止）。
-         構成は4幕（画面切替は覆い切りの瞬間＝約1.9秒）：
+      /* ---------- ダイブ演出（タイトル→デッキ選択の入口だけ。合計3.0秒・タップでスキップ可） ----------
+         遷移は終始「暗闇」だけで構成する。墨絵画像（darksumi_deep/mid/gold の絵画レイヤー）は
+         この遷移には一切使わない。白・ホワイトアウトも使わない。
+         構成（画面切替は覆い切りの瞬間＝約1.9秒）：
          ①0.00〜1.90秒 入り口：Diveボタンの中心から「暗闇そのもの」が生まれ、「感染」のように
-           じわじわ広がって画面を覆う。広がるのは既存の墨絵レイヤーではなく、この広がりの
-           ための暗闇レイヤー .dv-dark（ボタンを中心に深い黒→濃紺へ抜ける放射グラデーション）。
-           広がりは真円・均一な拡大ではなく、JSが毎フレーム書き換える clip-path の多角形で作る：
-           方向ごとに前進速度が違い、半径の前進は小さな脈動（進んでは止まる段階感）を伴い、
-           本体の縁の少し先には小さな染み（.dv-sat）が先行して現れて育ち、本体と合体する。
+           じわじわ広がって画面を覆う。暗闇レイヤー .dv-dark はボタンを中心に深い黒→濃紺へ
+           抜ける放射グラデーション。広がりは真円・均一な拡大ではなく、JSが毎フレーム書き換える
+           clip-path の多角形で作る：方向ごとに前進速度が違い、縁は不規則にうねり、本体の縁の
+           少し先には小さな染み（.dv-sat）が先行して現れて育ち、本体と合体する。前進は段階的な
+           脈動ではなく、smootherstep の連続曲線で止まらず跳ねずになめらかに進む。
            縁の外側には .dv-bleed（内層を clip＋外箱を blur したにじみ）が滲みの気配を作る
-         ②1.90〜2.25秒 接続：覆い切った暗闇の上に、確定版の墨の世界（.dv-world）がフェードイン
-           して重なり、暗闇レイヤーはその下で静かに引いていく（裏側でデッキ選択へ切替）
-         ③2.00〜2.20秒 墨が世界を覆う：黒の溜まり層がわずかに拡大して中央へ寄り、全体が最も暗くなる。
-           金の川に沿って光が一回通過し、金の川は最後に少しだけ見えて消える
-         ④2.10〜3.00秒 墨が流れ去る：黒の溜まりが先に引き、にじみ・渦の層が少し遅れて流れ去り、
-           金粉（金の層）が最後に消える。隙間からデッキ選択画面が現れる（到着後の出現は現行通り）
-         層は画像5枚まで（溜まり1＋にじみ3＋金1）。動きは transform/opacity 中心でスマホでも滑らかに。 */
+         ②1.90〜3.00秒 引き際：覆い切った瞬間に裏側でデッキ選択画面へ切り替え、暗闇は
+           そのままなめらかにフェードして引いていく。デッキ選択画面の出現順序
+           （濃紺背景→パネル→見出し→タイル→保存デッキ/次へ）は到着側のアニメーションで維持する */
       #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden; transition:opacity .35s ease, visibility 0s linear .35s; }
       #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .08s ease; }
       #dive-overlay.out{ opacity:0 !important; }
-      #dive-overlay .dv-world > div{ position:absolute; opacity:0; pointer-events:none; }
-      /* 入り口の広がり（ボタン中心から暗闇が生まれて広がる）は、JSが毎フレーム書き換える
-         clip-path の多角形で作る。.dv-dark＝広がる暗闇そのもの、.dv-bleed＝その少し外側の
-         にじみハロー。.dv-world（墨絵レイヤー一式）は広がりの間は見せず、覆い切った後に
-         .win でフェードインして暗闇の上に重なり、確定版の墨の世界へ接続する */
-      #dive-overlay .dv-world{ position:absolute; inset:0; opacity:0; transition:opacity .35s ease; }
-      #dive-overlay.win .dv-world{ opacity:1; }
       /* 暗闇レイヤー：背景はJSがボタンの中心に合わせた放射グラデーション（中心＝深い黒→
-         外側＝濃紺）を書く（下の指定はJSが書くまでの仮の地）。覆い切って .win が付くと、
-         墨の世界の下で静かに引いていく */
+         外側＝濃紺）を書く（下の指定はJSが書くまでの仮の地）。覆い切って .covered が付くと、
+         デッキ選択画面の上からなめらかにフェードして引いていく */
       #dive-overlay .dv-dark{ position:absolute; inset:0; background:linear-gradient(163deg, #080B12 0%, #0B1120 52%, #111A2D 100%); opacity:1; }
-      #dive-overlay.win .dv-dark{ opacity:0; transition:opacity .95s ease .3s; }
+      #dive-overlay.covered .dv-dark{ opacity:0; transition:opacity 1.05s cubic-bezier(.45,0,.3,1); }
       /* にじみハロー：内側の層（.dv-bleed-in）を clip で切り抜き、外側の箱に blur をかけて
          縁だけをぼかす（clip の縁そのものは blur できないため二重構造にする） */
       #dive-overlay .dv-bleed{ position:absolute; inset:0; opacity:0; transition:opacity .3s ease; filter:blur(8px); }
@@ -130,106 +106,14 @@
       #dive-overlay .dv-sat{ position:absolute; opacity:0; pointer-events:none; will-change:transform, opacity;
         border-radius:56% 44% 63% 37% / 47% 57% 43% 53%;
         background:radial-gradient(circle at 50% 50%, rgba(8,11,18,.96) 0%, rgba(9,13,22,.93) 52%, rgba(13,20,36,.5) 76%, rgba(13,20,36,0) 100%); }
-      /* 基調層：漆黒→濃紺。押した直後に立ち上がって画面を覆い、墨が引く後半に連れて薄れ、
-         下のデッキ選択画面（濃紺）が隙間から見えてくる */
-      #dive-overlay .dv-base{ inset:0; background:linear-gradient(163deg, #080B12 0%, #0B1120 52%, #111A2D 100%); }
-      #dive-overlay.run .dv-base{ animation:dvBaseK 3s ease-in-out both; }
-      @keyframes dvBaseK{ 0%{ opacity:0; } 10%{ opacity:1; } 66%{ opacity:1; } 91%{ opacity:0; } 100%{ opacity:0; } }
-      /* 墨の層PNG：全画面に cover で敷く。移動・回転で端が覗かないよう少し大きめ（inset:-4%）にし、
-         3層とも同じ箱を使うことで互いの位置合わせ（＝静止画の絵柄）を保つ */
-      #dive-overlay .dv-img{ inset:-4%; background-repeat:no-repeat; background-position:center; background-size:cover; will-change:transform, opacity; }
-      /* 黒の溜まり層：③でわずかに拡大して中央へ寄り全体を最も暗くし、④では一番先に引く */
-      #dive-overlay .dv-deep{ background-image:url(assets/darksumi_deep.png); transform-origin:50% 46%; }
-      #dive-overlay.run .dv-deep{ animation:dvDeepK 3s ease-in-out both; }
-      @keyframes dvDeepK{
-        0%{ opacity:0; transform:scale(1.03) translate(0, 1%); }
-        23%{ opacity:.85; transform:scale(1.03) translate(0, .6%); }
-        61%{ opacity:1; transform:scale(1.045) translate(0, .2%); }
-        68%{ opacity:1; transform:scale(1.08) translate(0, 0); }
-        79%{ opacity:.45; transform:scale(1.05) translate(0, -.4%); }
-        90%,100%{ opacity:0; transform:scale(1.03) translate(0, -.8%); }
-      }
-      /* にじみ・渦の層A（主層）：上の渦（46% 6%）を中心に時計回りへ最も大きく流れ、④は少し遅れて流れ去る。
-         3枚の層は中心・回転量（A:+5.2°／B:-4.6°／C:+3.3°）・移動方向・立ち上がりと引き際の
-         タイミングを意図的にずらし、層ごとに違う動きだと感じられるようにする（模様が崩れる範囲は超えない） */
-      #dive-overlay .dv-mid-a{ background-image:url(assets/darksumi_mid.png); transform-origin:46% 6%; }
-      #dive-overlay.run .dv-mid-a{ animation:dvMidAK 3s ease-in-out both; }
-      @keyframes dvMidAK{
-        0%{ opacity:0; transform:scale(.982) rotate(0deg) translate(.4%, 1.4%); }
-        20%{ opacity:.8; transform:scale(1) rotate(.8deg) translate(-.2%, .7%); }
-        58%{ opacity:.95; transform:scale(1.018) rotate(2.9deg) translate(-1.8%, -.7%); }
-        67%{ opacity:.95; transform:scale(1.024) rotate(3.4deg) translate(-2.2%, -.9%); }
-        82%{ opacity:.48; transform:scale(1.03) rotate(4.6deg) translate(-3.6%, -1.8%); }
-        95%,100%{ opacity:0; transform:scale(1.036) rotate(5.2deg) translate(-4.4%, -2.3%); }
-      }
-      /* にじみ・渦の層B（複製）：左の渦（16% 48%）を中心に逆回転。Aより遅く・薄く、下方向へ大きく流れる */
-      #dive-overlay .dv-mid-b{ background-image:url(assets/darksumi_mid.png); transform-origin:16% 48%; }
-      #dive-overlay.run .dv-mid-b{ animation:dvMidBK 3s ease-in-out both; }
-      @keyframes dvMidBK{
-        0%{ opacity:0; transform:scale(1.024) rotate(0deg) translate(2%, -.2%); }
-        28%{ opacity:.45; transform:scale(1.018) rotate(-.7deg) translate(1.4%, .4%); }
-        60%{ opacity:.62; transform:scale(1.012) rotate(-2.4deg) translate(.3%, 1.6%); }
-        70%{ opacity:.6; transform:scale(1.01) rotate(-2.8deg) translate(-.1%, 2%); }
-        88%{ opacity:.26; transform:scale(1.006) rotate(-3.9deg) translate(-1.2%, 3.2%); }
-        98%,100%{ opacity:0; transform:scale(1.002) rotate(-4.6deg) translate(-1.8%, 3.9%); }
-      }
-      /* にじみ・渦の層C（複製）：右下の渦（82% 76%）を中心に最もゆっくり・小さく回る。3枚の中で一番薄い */
-      #dive-overlay .dv-mid-c{ background-image:url(assets/darksumi_mid.png); transform-origin:82% 76%; }
-      #dive-overlay.run .dv-mid-c{ animation:dvMidCK 3s ease-in-out both; }
-      @keyframes dvMidCK{
-        0%{ opacity:0; transform:scale(.988) rotate(0deg) translate(-.6%, 1%); }
-        34%{ opacity:.35; transform:scale(.994) rotate(.5deg) translate(-.4%, .6%); }
-        65%{ opacity:.5; transform:scale(1) rotate(1.7deg) translate(-1.2%, -.2%); }
-        72%{ opacity:.48; transform:scale(1.003) rotate(2deg) translate(-1.4%, -.4%); }
-        91%{ opacity:.16; transform:scale(1.007) rotate(2.8deg) translate(-2.3%, -1.1%); }
-        100%{ opacity:0; transform:scale(1.01) rotate(3.3deg) translate(-2.9%, -1.5%); }
-      }
-      /* 金の川＋金粉の層：序盤はほぼ静止（金粉の漂い程度の微移動）、③の最も暗い瞬間に少しだけ見え、④で最後に消える */
-      #dive-overlay .dv-gold{ background-image:url(assets/darksumi_gold.png); }
-      #dive-overlay.run .dv-gold{ animation:dvGoldLK 3s ease-in-out both; }
-      @keyframes dvGoldLK{
-        0%{ opacity:0; transform:translate(0, .8%); }
-        23%{ opacity:.5; transform:translate(-.2%, .5%); }
-        61%{ opacity:.9; transform:translate(-.6%, 0); }
-        68%{ opacity:1; transform:translate(-.7%, -.1%); }
-        81%{ opacity:.55; transform:translate(-1%, -.4%); }
-        94%,100%{ opacity:0; transform:translate(-1.3%, -.7%); }
-      }
-      /* 金の川に沿う光の移動：金の層の形でマスクした柔らかい光の帯が、③の間に一回だけゆっくり通過する。
-         マスク位置が金の層とずれないよう、光の帯も .dv-img として金の層と全く同じ箱（inset:-4%・
-         cover・中央配置）を使い、transform は金の層の dvGoldLK と同一軌跡の dvGoldTK を併走させて、
-         移動中も常に金の川の真上に乗り続けるようにする。
-         位置合わせ（箱・transform同期）はそのままに、光の帯が走るタイミング（dvShineK）だけを
-         0.15秒遅らせ、墨と金の本体の動きからわずかに独立して流れている印象を加える */
-      #dive-overlay .dv-shine{ opacity:0;
-        background:linear-gradient(100deg, rgba(255,244,214,0) 32%, rgba(255,244,214,.34) 50%, rgba(255,244,214,0) 68%);
-        background-size:260% 100%; background-repeat:no-repeat;
-        -webkit-mask-image:url(assets/darksumi_gold.png); mask-image:url(assets/darksumi_gold.png);
-        -webkit-mask-size:cover; mask-size:cover; -webkit-mask-position:center; mask-position:center; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat; }
-      #dive-overlay.run .dv-shine{ animation:dvGoldTK 3s ease-in-out both, dvShineK 3s ease-in-out both; animation-delay:0s, .15s; }
-      /* 金の層 dvGoldLK の transform 軌跡だけを抜き出したもの（キー位置・値・タイミングを完全一致させる） */
-      @keyframes dvGoldTK{
-        0%{ transform:translate(0, .8%); }
-        23%{ transform:translate(-.2%, .5%); }
-        61%{ transform:translate(-.6%, 0); }
-        68%{ transform:translate(-.7%, -.1%); }
-        81%{ transform:translate(-1%, -.4%); }
-        94%,100%{ transform:translate(-1.3%, -.7%); }
-      }
-      @keyframes dvShineK{
-        0%,58%{ opacity:0; background-position:0% 0; }
-        68%{ opacity:.5; }
-        82%{ opacity:.5; background-position:100% 0; }
-        90%,100%{ opacity:0; background-position:100% 0; }
-      }
       /* ボタンの沈み込み（押した感触）：クリック直後の保持状態も :active の深い沈み込みにそろえ、
-         押した瞬間から墨が被るまで同じ「めり込んだ」姿勢を保つ（跳ね返りは付けない） */
+         押した瞬間から暗闇が被るまで同じ「めり込んだ」姿勢を保つ（跳ね返りは付けない） */
       .logo-btn.dive-press{ animation:dvPress .45s cubic-bezier(.25,.8,.35,1) both; }
       @keyframes dvPress{ 0%{ transform:translateY(4px) scale(.97); filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); } 100%{ transform:translateY(3px) scale(.975); filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); } }
       /* デッキ選択の出現（最終仕上げ）：出現は3段階に分け、中途半端に透けて見える時間を作らない。
-         ①墨が濃い間（切替から約0.5秒）はパネル・文字・タイルすべて不透明度0のまま一切見せない。
-           この間に墨が引き始め、まず背景（濃紺の地）だけが隙間から見える
-         ②墨が引き始めたらパネルだけが短時間でくっきり現れる（不透明度はアニメーションの
+         ①暗闇が濃い間（切替から約0.5秒）はパネル・文字・タイルすべて不透明度0のまま一切見せない。
+           この間に暗闇が引き始め、まず背景（濃紺の地）だけが見えてくる
+         ②暗闇が引き始めたらパネルだけが短時間でくっきり現れる（不透明度はアニメーションの
            前半で1に到達させ、半透明の状態に留まる時間を最小にする。ぼかしも前半で抜ける）
          ③最後に見出しの文字→5色タイル（約100ms差）→保存デッキ欄・次への順に、ぼかし無しで
            鮮明に現れる。出現の順序・間隔は確定版のまま（遅延は切替＝約1.9秒からの相対値）で、
@@ -6135,15 +6019,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBuilder();
         show("scr-build");
       }
-      /* ダイブ演出「DARK SUMI」動作試作：タイトル→デッキ選択の入口だけ。合計3.0秒。
+      /* ダイブ演出：タイトル→デッキ選択の入口だけ。合計3.0秒。
          ボタンがわずかに沈み、ボタンの中心から「暗闇そのもの」が生まれて、感染のように
-         じわじわ（方向差のある前進＋小さな脈動＋衛星染み）と画面全体へ広がって覆う
-         （入り口約1.9秒、clip-path の多角形をJSが毎フレーム書き換える。広がるのは
-         墨絵レイヤーではなく暗闇レイヤー .dv-dark）。覆い切った瞬間に裏側の画面を
-         切り替え、暗闇の上に確定版の墨の世界（墨の層PNG 3枚：黒の溜まり／にじみ・渦／
-         金の川＋金粉）がフェードインして接続する。後半は黒の溜まり→にじみ・渦→金粉の
-         順に時間差で引いて、隙間から濃紺とパネルが見えてきて、
-         5色タイル（約100ms差）→保存デッキ欄・次への順に現れる。
+         じわじわと画面全体へ広がって覆う（入り口約1.9秒、clip-path の多角形をJSが
+         毎フレーム書き換える）。遷移は終始この暗闇レイヤー .dv-dark だけで構成し、
+         墨絵画像は広がるフェーズにも覆った後にも使わない。前進は段階的な脈動ではなく
+         連続曲線でなめらかに進み、方向ごとの速度差・縁のうねり・衛星染みの先行と合体で
+         感染的な不均一さを出す。覆い切った瞬間に裏側の画面を切り替え、暗闇はなめらかに
+         フェードして引いていき、濃紺とパネルが見えてきて、5色タイル（約100ms差）→
+         保存デッキ欄・次への順に現れる。
          タップでスキップ可。動きを減らす設定では即時遷移する。 */
       let diveTimers = [], diveFinished = true, diveSwitched = false, diveRaf = 0;
       function diveCleanup(){
@@ -6152,7 +6036,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const ov = $("dive-overlay"), btn = $("btn-mode-cpu");
         if (btn) btn.classList.remove("dive-press");
         if (ov){
-          ov.classList.remove("on", "run", "out", "win"); ov.onclick = null;
+          ov.classList.remove("on", "run", "out", "covered"); ov.onclick = null;
           const d = ov.querySelector(".dv-dark"), bi = ov.querySelector(".dv-bleed-in"), b = ov.querySelector(".dv-bleed");
           if (d){ d.style.clipPath = ""; d.style.background = ""; }
           if (bi) bi.style.clipPath = "";
@@ -6170,11 +6054,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         ov.classList.add("on");
         requestAnimationFrame(function(){ requestAnimationFrame(function(){ if (!diveFinished) ov.classList.add("run"); }); });
         /* 入り口：ボタンの中心から「暗闇そのもの」が生まれ、感染のようにじわじわ広がる。
-           広がるのは墨絵レイヤーではなく暗闇レイヤー .dv-dark（＋少し外側のにじみハロー
-           .dv-bleed-in）。縁は真円ではなく clip-path の多角形で作り、方向ごとに前進速度が
-           違い（dvSpd）、半径の前進は6回の小さな脈動＝進んでは止まる段階感を伴う（dvCreep）。
-           本体の縁の少し先には衛星染み .dv-sat が先行して現れ、育って本体と合体する。
-           約1.9秒で覆い切ったら clip を外し、暗闇の上に確定版の墨の世界を重ねて繋げる */
+           広がるのは暗闇レイヤー .dv-dark（＋少し外側のにじみハロー .dv-bleed-in）だけ。
+           縁は真円ではなく clip-path の多角形で作り、方向ごとに前進速度が違い（dvSpd）、
+           半径の前進は smootherstep の連続曲線（dvGrow）で、止まったり跳ねたりせず
+           なめらかに進む。本体の縁の少し先には衛星染み .dv-sat が先行して現れ、
+           なめらかに育って本体に飲み込まれ合体する。
+           約1.9秒で覆い切ったら clip を外し、暗闇はそのままフェードして引いていく */
         const dvDark = ov.querySelector(".dv-dark"), dvBleed = ov.querySelector(".dv-bleed"), dvBleedIn = ov.querySelector(".dv-bleed-in");
         const dvBr = btn.getBoundingClientRect();
         const dvCx = dvBr.left + dvBr.width / 2, dvCy = dvBr.top + dvBr.height / 2;
@@ -6185,7 +6070,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const DV_NPT = 56, dvPh1 = Math.random() * 6.283, dvPh2 = Math.random() * 6.283, dvPh3 = Math.random() * 6.283;
         /* 方向ごとの前進速度（約0.79〜1.21倍）：速く伸びる方角と遅れる方角を作る */
         function dvSpd(th){ return 1 + .10 * Math.sin(2 * th + dvPh1) + .07 * Math.sin(3 * th + dvPh2) + .04 * Math.sin(7 * th + dvPh3); }
-        /* 縁のうねり（真円・規則形に見せないための凹凸）。脈動に合わせて位相も進む */
+        /* 縁のうねり（真円・規則形に見せないための凹凸）。前進に合わせて位相もなめらかに進む */
         function dvWob(th, phase){ return 1 + .06 * Math.sin(3 * th + dvPh1 + phase) + .045 * Math.sin(5 * th + dvPh2 - phase * .7) + .03 * Math.sin(9 * th + dvPh3 + phase * 1.3) + .018 * Math.sin(14 * th + dvPh1 * 2.1); }
         function dvDirR(R, th, phase){ return R * dvSpd(th) * dvWob(th, phase); }
         function dvBlobPoly(R, grow, phase){
@@ -6197,12 +6082,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           }
           return "polygon(" + pts.join(",") + ")";
         }
-        /* 脈動する前進：1周期ごとに「じわっと進む→止まる」を6回繰り返して覆い切る */
-        function dvCreep(t){
+        /* なめらかな前進：smootherstep の連続曲線で、生まれはゆっくり、途中は着実に、
+           覆い切る直前はそっと減速する。段階・停止・跳ねは一切作らない */
+        function dvGrow(t){
           if (t >= 1) return 1;
-          const N = 6, u = t * N, i = Math.floor(u), f = u - i;
-          const f2 = Math.min(1, f / .7); /* 周期の前70%で進み、後30%は止まって滲みを溜める */
-          return (i + (1 - Math.pow(1 - f2, 2.2))) / N;
+          if (t <= 0) return 0;
+          return t * t * t * (t * (t * 6 - 15) + 10);
         }
         /* 衛星染み：本体の縁の少し先にポツポツ先行して現れ、育ってから本体と合体する */
         const dvSats = [], DV_NSAT = 7;
@@ -6218,26 +6103,28 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         (function dvStep(now){
           if (diveFinished) return;
           const t = Math.min(1, (now - dvT0) / 1900);
-          const p = dvCreep(t);
+          const p = dvGrow(t);
           const R = 12 + (dvMaxD * 1.62 - 12) * p;
-          const wob = p * 2.4; /* うねりの位相は前進量に連動（止まっている間は縁も静まる） */
+          const wob = p * 2.4; /* うねりの位相は前進量に連動して連続的に進む */
           if (dvDark) dvDark.style.clipPath = dvBlobPoly(R, 1, wob);
           if (dvBleedIn) dvBleedIn.style.clipPath = dvBlobPoly(R, 1.05, wob + .5);
           for (let k = 0; k < dvSats.length; k++){
             const s = dvSats[k];
             if (s.merged) continue;
             const er = dvDirR(R, s.ang, wob); /* その方角の本体の縁の現在位置 */
-            if (er >= s.dist * 1.04){ s.merged = true; s.el.style.opacity = "0"; continue; } /* 合体 */
+            if (er >= s.dist * 1.22){ s.merged = true; s.el.style.opacity = "0"; continue; } /* 合体完了 */
             const g = (er - s.dist * .66) / (s.dist * .38); /* 縁が近づくほど染みが育つ */
             if (g <= 0){ s.el.style.opacity = "0"; continue; }
             const gg = Math.min(1, g);
+            /* 合体は突然消さず、本体の縁が染みの中心を過ぎるにつれて徐々に飲み込む */
+            const mFade = Math.max(0, Math.min(1, (s.dist * 1.22 - er) / (s.dist * .27)));
             const sc = (.22 + .78 * (1 - Math.pow(1 - gg, 2))) * (1 + .05 * Math.sin(now / 150 + s.seed));
             const d = s.rMax * 2;
             s.el.style.width = d.toFixed(0) + "px"; s.el.style.height = (d * .82).toFixed(0) + "px";
             s.el.style.left = (dvCx + s.dist * Math.cos(s.ang) - d / 2).toFixed(1) + "px";
             s.el.style.top = (dvCy + s.dist * Math.sin(s.ang) - d * .41).toFixed(1) + "px";
             s.el.style.transform = "scale(" + sc.toFixed(3) + ") rotate(" + (s.seed * 40).toFixed(0) + "deg)";
-            s.el.style.opacity = Math.min(.97, gg * 1.7).toFixed(2);
+            s.el.style.opacity = (Math.min(.97, gg * 1.7) * mFade).toFixed(2);
           }
           if (t < 1){ diveRaf = requestAnimationFrame(dvStep); }
           else {
@@ -6248,13 +6135,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             dvSats.forEach(function(s){ s.el.style.opacity = "0"; });
           }
         })(dvT0);
-        /* 約1.9秒：暗闇が覆い切った瞬間に裏で画面を切り替え、暗闇の上に確定版の墨の世界を
-           フェードインさせる（.win）。暗闇レイヤーはその下で引いていく（素の画面は見えない） */
+        /* 約1.9秒：暗闇が覆い切った瞬間に裏で画面を切り替え、暗闇は .covered で
+           なめらかにフェードして引いていく（墨絵画像は重ねない。素の画面は見えない） */
         diveTimers.push(setTimeout(function(){
           if (!diveSwitched){ diveSwitched = true; go(false); }
-          ov.classList.add("win");
+          ov.classList.add("covered");
         }, 1900));
-        /* 3.0秒：墨が引ききったところでオーバーレイを外す（見た目は変わらない） */
+        /* 3.0秒：暗闇が引ききったところでオーバーレイを外す（見た目は変わらない） */
         diveTimers.push(setTimeout(function(){ diveFinished = true; diveCleanup(); }, 3000));
         ov.onclick = function(){
           if (diveFinished) return;
@@ -10797,7 +10684,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       })();
     </script>
     <!-- ダイブ演出用オーバーレイ（タイトル→色選択の遷移でのみ使う） -->
-    <div id="dive-overlay" aria-hidden="true"><div class="dv-bleed"><div class="dv-bleed-in"></div></div><div class="dv-dark"></div><div class="dv-world"><div class="dv-base"></div><div class="dv-img dv-mid-c"></div><div class="dv-img dv-mid-b"></div><div class="dv-img dv-mid-a"></div><div class="dv-img dv-deep"></div><div class="dv-img dv-gold"></div><div class="dv-img dv-shine"></div></div></div>
+    <div id="dive-overlay" aria-hidden="true"><div class="dv-bleed"><div class="dv-bleed-in"></div></div><div class="dv-dark"></div></div>
     <!-- デッキ選択画面の端にだけ薄く漂い続ける霧（遷移後の余韻） -->
   </body>
 </html>
