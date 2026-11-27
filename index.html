@@ -306,6 +306,8 @@
         pointer-events:none; text-align:center; opacity:0; width:min(92vw,540px);
       }
       .callout.show{ animation:callout-pop 1.1s ease-out forwards; }
+      .callout.big{ width:min(96vw,700px); }
+      .callout.show.big{ animation:callout-pop 1.9s ease-out forwards; }
       .callout-tx{
         font-family:"Shippori Mincho B1", serif; font-weight:800; font-size:clamp(2.6rem,13vw,4.6rem);
         color:#fff; letter-spacing:.04em; line-height:1.1;
@@ -322,6 +324,7 @@
       }
       @media (prefers-reduced-motion: reduce){
         .callout.show{ animation:callout-fade 1.1s linear forwards; }
+        .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
@@ -6369,8 +6372,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         fukugen: "assets/callout_fukugen.png", hakai: "assets/callout_hakai.png", kouka: "assets/callout_kouka.png",
         block: "assets/callout_block.png", turnPlayer: "assets/callout_turn_player.png", turnEnemy: "assets/callout_turn_enemy.png",
         sokuou: "assets/callout_sokuou.png", double: "assets/callout_double.png",
+        stand: "assets/callout_stand.png", soubi: "assets/callout_soubi.png", dive: "assets/callout_dive.png",
       };
-      const CALLOUT_TX = { attack: "攻撃！", draw: "ドロー！", summon: "イジン召喚！", haikei: "ハイケイ配置！", maryoku: "魔力配置！", meifu: "冥府発動！", fukugen: "復元！", hakai: "破壊！", kouka: "効果発動！", block: "ブロック！", turnPlayer: "あなたのターン", turnEnemy: "相手のターン", sokuou: "即応！", double: "ダブルプレッシャー！" };
+      const CALLOUT_TX = { attack: "攻撃！", draw: "ドロー！", summon: "イジン召喚！", haikei: "ハイケイ配置！", maryoku: "魔力配置！", meifu: "冥府発動！", fukugen: "復元！", hakai: "破壊！", kouka: "効果発動！", block: "ブロック！", turnPlayer: "あなたのターン", turnEnemy: "相手のターン", sokuou: "即応！", double: "ダブルプレッシャー！", stand: "スタンド！", soubi: "装備！", dive: "ダイブトゥイジンデン！" };
       let calloutTimer = null;
       let calloutChainTimer = null;
       function showCallout(kind, sub, opts){
@@ -6381,6 +6385,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         im.classList.remove("hidden");
         tx.textContent = "";
         sb.textContent = sub || "";
+        el.classList.toggle("big", !!(opts && opts.big)); // opts.big: 対戦開始ロゴなど、通常より大きく長く出す
         el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
         // オンライン対戦：コールアウトはイベントとして記録し、次の状態スナップショットと一緒にゲストへ送る（ゲスト側で順番に再演する）
         if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: kind, sub: sub || "" }); NET.queueState(); }
@@ -7604,7 +7609,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (blade){
           ijin.equipUid = blade.uid;
           log("「" + ijin.name + "」は「" + blade.name + "」を装備した！（" + equipSub(blade.name) + "）");
-          showCallout("kouka");
+          showCallout("soubi", "『" + blade.name + "』→『" + ijin.name + "』");
           renderBattle();
         }
       }
@@ -7637,7 +7642,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           G.assignments.set(G.defSelAttacker, bs);
         }
         log("【スタンド】「" + card.name + "」が魔力ゾーンから表向きになってブロックに参加した！");
-        showCallout("kouka");
+        showCallout("stand", "『" + card.name + "』");
         renderBattle();
         // スタンドで戦場に置かれたので、「戦場に置かれたとき」の能力も発動する（李成桂など）
         await fireOnSummon(defKey, ni);
@@ -7658,7 +7663,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         await ensureViewer(k, "ターン開始です");
         if (G.over) return;
         // オンライン対戦ではホスト画面基準のバナーにする（ゲスト側では再演時に自分基準へ反転する）
-        showCallout(S.gameMode === "online" ? (k === "P" ? "turnPlayer" : "turnEnemy") : "turnPlayer");
+        const turnKind = S.gameMode === "online" ? (k === "P" ? "turnPlayer" : "turnEnemy") : "turnPlayer";
+        // 対戦開始の掛け声：最初のターンだけ「ダイブトゥイジンデン！」ロゴを大きく出してからターンバナーへつなぐ
+        if (first) showCallout("dive", "", { dur: 1750, big: true, next: { kind: turnKind, dur: 1150 }, gap: 1600 });
+        else showCallout(turnKind);
         side.field.forEach(function(f){ f.sleeping = false; });
         side.guardians.forEach(function(g){ g.sleeping = false; }); // ガーディアンもターン開始時に起きる（アンナ・パブロワで寝かされた場合）
         side.field.forEach(function(f){ if (f.faceDown){ f.faceDown = false; log("「" + f.name + "」は表向きに戻った。", "sys"); } });
@@ -7709,7 +7717,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         G.turnSeq = (G.turnSeq || 0) + 1;
         C.nagayaAtStart = C.haikei.filter(function(h){ return h.name === "浪士集う長屋"; }).length;
         setTicker("CPUのターンが始まった");
-        showCallout("turnEnemy");
+        // 対戦開始の掛け声：CPU先攻の初ターンも「ダイブトゥイジンデン！」ロゴから
+        if (first) showCallout("dive", "", { dur: 1750, big: true, next: { kind: "turnEnemy", dur: 1150 }, gap: 1600 });
+        else showCallout("turnEnemy");
         renderBattle();
         await wait(2500);
         if (C.deck.length === 0){ endGame("P", "CPUの山札が尽きた！"); return; }
@@ -8277,6 +8287,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             assign.set(atk.uid, [{ kind:"ijin", uid: sNi.uid, name: sNi.name }]);
             log("CPUは【スタンド】！「" + sNi.name + "」が魔力ゾーンから表向きになってブロックに参加した！");
             setTicker("CPUが【スタンド】「" + sNi.name + "」を表向きにしてブロック");
+            showCallout("stand", "『" + sNi.name + "』");
             return;
           }
           // guardian
@@ -8349,6 +8360,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               sum = blkPower("C", sNi);
               log("CPUは【スタンド】！「" + sNi.name + "」が魔力ゾーンから表向きになってブロックに参加した！");
               setTicker("CPUが【スタンド】「" + sNi.name + "」を表向きにしてブロック");
+              showCallout("stand", "『" + sNi.name + "』");
             }
           }
           // 必要体数まで埋める：合計が届いていない間は安いイジン、届いたらガーディアンで温存
@@ -9665,7 +9677,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         }
       }
       function guestFxOne(e){
-        if (e.k === "callout"){ showCallout(e.kind, e.sub || "", { dur: 520 }); return wait(460); }
+        if (e.k === "callout"){ showCallout(e.kind, e.sub || "", { dur: 520, big: e.kind === "dive" }); return wait(460); }
         if (e.k === "draw") return guestFxDraw(e.side, e.n);
         if (e.k === "place") return guestFxPlace(e);
         if (e.k === "attack") return guestFxAttack(e);
