@@ -327,7 +327,8 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-      /* 対戦開始イントロ：墨の闇の中に「Dive to イジンデン」のロゴが浮かび、水墨画の霧（横霞）が晴れて後ろの盤面が現れてからターンバナーへつなぐ。
+      /* 対戦開始イントロ：画面全体が暗い墨の霧に覆われ、霧の中に水墨画の一枚絵（assets/dive_intro.jpg：月・城・桜・墨の山並み＋「Dive to イジンデン」ロゴ入り）が浮かび上がる。
+         霧が晴れる時は一枚絵も一緒にフェードアウトし、後ろの盤面が現れてからターンバナーへつなぐ。
          霧は墨の濃淡で引いた横霞の帯：SVGの乱流変形（#sumiEdge1/2）で輪郭に筆の掠れと滲みを付け、晴れる時は墨の帯が左右に割れて開く */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
@@ -340,6 +341,11 @@
           radial-gradient(ellipse at 50% 40%, rgba(88,92,102,.5) 0%, rgba(30,31,36,0) 56%),
           linear-gradient(180deg, #0e0f12 0%, #17181d 46%, #060708 100%); }
       .dive-intro.clear .di-bg{ opacity:0; }
+      /* 水墨画の一枚絵：霧の下からゆっくり浮かび上がり（わずかにズームアウトしながら）、晴れる時に霧と一緒に消える */
+      .di-art{ position:absolute; inset:0; background-image:url("assets/dive_intro.jpg"); background-size:cover; background-position:center;
+        opacity:0; transform:scale(1.07); transition:opacity 1.5s ease, transform 3.6s ease; }
+      .dive-intro.on .di-art{ opacity:1; transform:scale(1); }
+      .dive-intro.clear .di-art{ opacity:0; transition:opacity 1.2s ease, transform 1.2s ease; }
       .di-fog{ position:absolute; left:-14vw; width:128vw; pointer-events:none; opacity:.92;
         transition:opacity 1.45s ease, transform 1.45s cubic-bezier(.3,.6,.3,1); }
       /* 横霞の帯：淡い墨の洗い＋濃い墨の帯を重ね、細い横線の重なりで筆の筋を出す */
@@ -365,27 +371,19 @@
           linear-gradient(180deg, rgba(198,203,212,0) 10%, rgba(198,203,212,.3) 38%, rgba(150,156,166,.08) 58%, rgba(198,203,212,0) 86%); }
       @keyframes diDrift1{ from{ margin-left:-3vw; } to{ margin-left:3.5vw; } }
       @keyframes diDrift2{ from{ margin-left:3vw; } to{ margin-left:-3.5vw; } }
+      /* 一枚絵が浮かび上がる間、霧は薄くなって絵を透かす（晴れる時は下のclear指定が優先される） */
+      .dive-intro.on .di-fog{ opacity:.48; }
+      .dive-intro.on .di-fog.f4{ opacity:.34; }
       /* 晴れる時：墨の帯が左右に割れて開き、滲むように消える */
-      .dive-intro.clear .di-fog{ opacity:0; animation:none; }
+      .dive-intro.clear .di-fog, .dive-intro.clear .di-fog.f4{ opacity:0; animation:none; }
       .dive-intro.clear .di-fog.f1{ transform:translateX(-17vw) scaleY(1.12); }
       .dive-intro.clear .di-fog.f2{ transform:translateX(17vw) scaleY(1.12); }
       .dive-intro.clear .di-fog.f3{ transform:translateX(-13vw) translateY(6vh) scaleY(1.15); }
       .dive-intro.clear .di-fog.f4{ transform:translateX(13vw) translateY(-5vh) scaleY(1.2); }
-      .di-center{ position:absolute; left:50%; top:43%; transform:translate(-50%,-50%); width:min(94vw,660px); text-align:center; }
-      .di-glow{ position:absolute; left:50%; top:50%; width:135%; padding-top:62%; transform:translate(-50%,-50%);
-        background:radial-gradient(ellipse at center, rgba(255,247,224,.96) 0%, rgba(252,233,183,.6) 42%, rgba(252,233,183,0) 72%);
-        opacity:0; transition:opacity .8s ease; }
-      .dive-intro.on .di-glow{ opacity:1; }
-      .dive-intro.clear .di-glow{ opacity:0; transition:opacity 1.1s ease; }
-      .di-logo{ position:relative; width:100%; height:auto; display:block; opacity:0; transform:scale(.78);
-        filter:drop-shadow(0 4px 18px rgba(255,255,255,.55)) drop-shadow(0 10px 30px rgba(0,0,0,.5));
-        transition:opacity .55s ease, transform .65s cubic-bezier(.2,.8,.3,1.15); }
-      .dive-intro.on .di-logo{ opacity:1; transform:scale(1); }
-      .dive-intro.clear .di-logo{ opacity:0; transform:scale(1.04) translateY(-8px); transition:opacity 1s ease, transform 1.2s ease; }
       @media (prefers-reduced-motion: reduce){
         .di-fog{ animation:none !important; }
-        .di-logo{ transition:opacity .3s ease; transform:none; }
-        .dive-intro.clear .di-logo{ transform:none; }
+        .di-art{ transition:opacity .4s ease; transform:none; }
+        .dive-intro.on .di-art, .dive-intro.clear .di-art{ transform:none; }
       }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
@@ -1147,7 +1145,7 @@
           <div class="callout-sub" id="callout-sub"></div>
         </div>
 
-        <!-- 対戦開始イントロ：墨の闇→ダイブロゴ→水墨画の霧（横霞）が割れて晴れ、盤面→ターンバナー（タップでスキップ可） -->
+        <!-- 対戦開始イントロ：暗い墨の霧→水墨画の一枚絵（ロゴ入り）が霧の中に浮かぶ→霧と一枚絵が晴れて盤面→ターンバナー（タップでスキップ可） -->
         <div class="dive-intro" id="dive-intro" aria-hidden="true">
           <svg class="di-svgdefs" aria-hidden="true" focusable="false">
             <defs>
@@ -1162,14 +1160,11 @@
             </defs>
           </svg>
           <div class="di-bg"></div>
+          <div class="di-art" role="img" aria-label="月と城と桜、墨の山並みの水墨画に「Dive to イジンデン」のロゴ"></div>
           <div class="di-fog f1"></div>
           <div class="di-fog f2"></div>
           <div class="di-fog f3"></div>
           <div class="di-fog f4"></div>
-          <div class="di-center">
-            <div class="di-glow"></div>
-            <img class="di-logo" src="assets/callout_dive.png" alt="" />
-          </div>
         </div>
 
         <!-- opponent side (CPU / プレイヤー2): mat rotated 180°, zones mirrored -->
@@ -6499,7 +6494,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
         }
       }
-      /* ---- 対戦開始イントロ：暗い霧の中にダイブロゴが浮かび、霧が晴れて盤面が現れたあと、opts.nextのターンバナーへつなぐ。
+      /* ---- 対戦開始イントロ：暗い墨の霧の中に水墨画の一枚絵（ロゴ入り）が浮かび、霧と一枚絵が晴れて盤面が現れたあと、opts.nextのターンバナーへつなぐ。
          タップでスキップ可。完了を待てるようPromiseを返す（オンライン対戦のゲスト再演用） ---- */
       let diveIntroTimers = [], diveIntroResolve = null, diveIntroPhase = 2;
       function playDiveIntro(opts){
@@ -6529,7 +6524,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const toClear = function(){
           if (diveIntroPhase !== 0) return;
           diveIntroPhase = 1;
-          ov.classList.add("clear"); // 霧とロゴが約1.3秒かけて消え、後ろの盤面が現れる
+          ov.classList.add("clear"); // 霧と一枚絵が約1.3秒かけて消え、後ろの盤面が現れる
           diveIntroTimers.push(setTimeout(finish, rm ? 500 : 1350));
         };
         diveIntroPhase = 0;
@@ -6558,7 +6553,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       function preloadCallouts(){
         Object.keys(CALLOUT_IMG).forEach(function(k){ const i = new Image(); i.src = CALLOUT_IMG[k]; });
-        ["assets/callout_win.png", "assets/callout_lose.png"].forEach(function(s){ const i = new Image(); i.src = s; });
+        ["assets/callout_win.png", "assets/callout_lose.png", "assets/dive_intro.jpg"].forEach(function(s){ const i = new Image(); i.src = s; });
       }
 
       /* ---- mana ---- */
