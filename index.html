@@ -2425,7 +2425,7 @@
           const evs = foe.field.filter(function(f){ return !f.sleeping; }).map(function(f){ return { sideKey: foeK, kind: "ijin", uid: f.uid }; });
           log("「遁甲式烈火」の能力！ガーディアンを山札の上に戻し、" + whoName(foeK) + "の起きているイジン" + evs.length + "体を破壊する！");
           if (!isHuman(defKey)) setTicker("CPUが「遁甲式烈火」の効果を発動した");
-          showCallout("kouka");
+          showCallout("kouka", "「遁甲式烈火」：相手の起きているイジンすべてを破壊");
           renderBattle();
           if (evs.length) await processDestruction(evs);
           renderBattle();
@@ -5034,7 +5034,7 @@ D.guardians = D.guardians.filter(function(x){ return x.uid!== g.uid;});
 D.deck.unshift({ uid: g.uid, name: g.name});
 log("「遁甲式木蓮」！ガーディアン1体を山札の上に戻し、アタッカーすべてをアタッカーでない状態にした！");
 if (!isHuman(defKey)) setTicker("CPUが「遁甲式木蓮」の効果を発動した");
-showCallout("kouka");
+showCallout("kouka", "「遁甲式木蓮」：アタッカーすべてをアタッカーでなくした");
 if (G.attackers) G.attackers.forEach(function(a){ a.soshinCancelled = true;});
 if (G.assignments) G.assignments.clear();
 renderBattle();
@@ -7018,6 +7018,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         S.G.log.push({ msg: msg, cls: cls || "" });
         if (S.G.log.length > 60) S.G.log.shift();
         renderLog();
+        maybeFxCallout(msg); // 効果発動のログなら「効果発動！＋説明」コールアウトも出す
       }
       function renderLog(){
         // ログ表示UIは廃止（対戦の経過は演出とカードの状態変化で伝える）。記録だけ内部に残す。
@@ -7050,10 +7051,32 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       const CALLOUT_TX = { attack: "攻撃！", draw: "ドロー！", summon: "イジン召喚！", haikei: "ハイケイ配置！", maryoku: "魔力配置！", meifu: "冥府発動！", fukugen: "復元！", hakai: "破壊！", kouka: "効果発動！", block: "ブロック！", turnPlayer: "あなたのターン", turnEnemy: "相手のターン", sokuou: "即応！", double: "ダブルプレッシャー！", stand: "スタンド！", soubi: "装備！", dive: "ダイブトゥイジンデン！" };
       let calloutTimer = null;
       let calloutChainTimer = null;
+      /* ---- 効果説明コールアウト ----
+         タマル王のドロー封じで好評だった「効果発動！＋一言説明」の見せ方を、他のカードの効果発動でも出すための仕組み。
+         効果の解決はほぼすべて log() に「「カード名」の能力：…」「「カード名」：…」「◯◯の「カード名」の遺業…」
+         のような文で記録されるので、log をフックして該当する文を拾い、その文をそのまま説明として表示する。
+         連続発動で画面が埋まらないよう間引きし、攻撃・ドロー等のコールアウトが出た直後は割り込まない */
+      var FXANN = { at: 0, anyAt: 0, anyKind: "", last: "" };
+      function maybeFxCallout(msg){
+        if (typeof FXANN === "undefined" || !S.G || S.G.over || typeof msg !== "string") return;
+        if (S.gameMode === "online" && NET.isGuest()) return; // ゲスト側はホストのコールアウトを再演するので二重に出さない
+        const fxOv = $("overlay-fx");
+        if (fxOv && fxOv.classList.contains("on")) return; // 効果の選択モーダルが開いている間は、その裏で出さない
+        if (!/(「[^」]{1,24}」の(能力|効果|遺業)|^「[^」]{1,24}」[：！]|マホウ「[^」]{1,24}」を使った|^遺業【)/.test(msg)) return;
+        const now = Date.now();
+        if (now - FXANN.at < 1600) return;    // 効果が連続しても表示は1つずつ（コールアウトの表示は約1.15秒）
+        if (now - FXANN.anyAt < 750) return;  // 直前に別のコールアウト（攻撃・ドロー・タマル王の明示表示等）があったら潰さない
+        let sub = msg.replace(/。$/, "");
+        if (sub.length > 42) sub = sub.slice(0, 42) + "…";
+        if (!sub || sub === FXANN.last) return;
+        FXANN.at = now; FXANN.last = sub;
+        showCallout("kouka", sub);
+      }
       function showCallout(kind, sub, opts){
         const el = $("callout"); if (!el || !S.G || S.G.over) return;
         // 対戦開始の「ダイブトゥイジンデン！」（opts.big）は通常のコールアウトではなく霧のイントロ演出で大きく見せる
         if (kind === "dive" && opts && opts.big) return playDiveIntro(opts);
+        FXANN.anyAt = Date.now(); FXANN.anyKind = kind;
         const im = $("callout-img"), tx = $("callout-tx"), sb = $("callout-sub");
         im.onerror = function(){ im.classList.add("hidden"); tx.textContent = CALLOUT_TX[kind] || ""; };
         if (im.getAttribute("src") !== CALLOUT_IMG[kind]) im.src = CALLOUT_IMG[kind];
@@ -7958,7 +7981,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const who = whoName(sideKey);
         if (!isHuman(sideKey)) setTicker("CPUが「" + inst.name + "」の遺業を使った"); // 遺業のカード名は墓地の公開情報
         if (kind === "fukugen"){
-          showCallout("fukugen");
+          showCallout("fukugen", "「" + inst.name + "」の遺業【復元】");
           side.grave = side.grave.filter(function(g){ return g.uid !== inst.uid; });
           side.maryoku.push({ uid: inst.uid, name: inst.name, faceUp: true });
           log(who + "の「" + inst.name + "」の遺業【復元】：魔力ゾーンに表向きで置いた。");
@@ -8022,7 +8045,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           }
         } else if (kind === "meifu"){
           log(who + "の「" + inst.name + "」の遺業【冥府発動】！", sideKey === "P" ? "win" : "lose");
-          showCallout("meifu");
+          showCallout("meifu", "「" + inst.name + "」の遺業【冥府発動】");
           await resolveMahouEffect(sideKey, inst.name, inst, true);
         } else if (kind === "deckUD"){
           let toTop = true;
@@ -8722,7 +8745,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           C.hand = C.hand.filter(function(x){ return x.uid !== h.uid; });
           log("CPUはマホウ「" + h.name + "」を使った！");
           setTicker("CPUがマホウ「" + h.name + "」を使った");
-          showCallout("kouka");
+          showCallout("kouka", "CPUのマホウ「" + h.name + "」");
           renderBattle(); await wait(2200);
           await resolveMahouEffect("C", h.name, h, false);
           noteSpellHaiUse("C");
