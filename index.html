@@ -460,18 +460,30 @@
       /* 対戦画面の周囲はタイトル画面の紺＋金トーンに寄せた濃色にする。盤面の外に置かれる文字・ボタンは濃背景前提の色に切り替える */
       #scr-battle .b-head .turn-label{ color:#f3ecd9; }
       #scr-battle .b-head .ghost-btn{ color:#e8dfc8; border-color:rgba(199,164,90,.55); background:rgba(20,24,38,.6); }
-      #scr-battle .zone-label{ color:#b7a67f; }
+      #scr-battle .zone-label{ color:#dcc794; }
       #scr-battle .cpu-ticker{ background:rgba(14,17,28,.94); color:#eee5cd; border-color:rgba(199,164,90,.4); }
       #scr-battle .btn-end{ background:#e9e2cf; color:#1c1a14; }
       #scr-battle .side-box{ border-color:rgba(199,164,90,.5); }
-      /* マットの絵柄の上でも読めるよう、見出し・ゾーン名・パイル文字には薄いハローを付ける（ベールを弱めたぶんの可読性担保） */
-      #scr-battle .side-name, #scr-battle .side-stats, #scr-battle .zlabel, #scr-battle .pile .pl, #scr-battle .pile .pn{
-        text-shadow:0 0 5px rgba(255,252,240,.85), 0 0 3px rgba(255,252,240,.85);
+      /* マットの絵柄の上でも読めるよう、枚数などの文字は濃色チップの上に大きく・明るく・太く出す。
+         以前の「薄いハロー（ぼんやりした発光）」は文字がにじんで読めなかったので廃止し、背景チップで可読性を担保する */
+      #scr-battle .side-top{
+        background:rgba(6,8,16,.80); border:1px solid rgba(199,164,90,.35);
+        border-radius:8px; padding:3px 8px;
       }
-      @media (prefers-color-scheme: dark){
-        #scr-battle .side-name, #scr-battle .side-stats, #scr-battle .zlabel, #scr-battle .pile .pl, #scr-battle .pile .pn{
-          text-shadow:0 0 5px rgba(5,6,12,.9), 0 0 3px rgba(5,6,12,.9);
-        }
+      #scr-battle .side-name{ color:#f7f1de; }
+      #scr-battle .side-stats{ color:#f3ecd9; font-weight:800; }
+      #scr-battle .zlabel{
+        background:rgba(6,8,16,.88); color:#f3ecd9; border:1px solid rgba(199,164,90,.35);
+        border-radius:5px; padding:2px 6px;
+      }
+      #scr-battle .pile{ background:rgba(6,8,16,.68); border-color:rgba(199,164,90,.55); }
+      #scr-battle .pile .pl{ color:#efe5c8; }
+      #scr-battle .pile .pn{ color:#fffdf4; }
+      #scr-battle .pile .pt{ color:#efe5c8; }
+      #scr-battle .pile .ptap{ color:#ffd94d; }
+      #scr-battle .deck-pile .pn small{ color:#d9cfb0; }
+      #scr-battle .zone.empty::after{
+        color:#e9dfc2; background:rgba(6,8,16,.60); border-radius:5px; padding-left:7px; padding-right:7px;
       }
       #scr-battle.on{
         display:flex; flex-direction:column; gap:4px;
@@ -489,8 +501,8 @@
         display:flex; flex-direction:column; border-radius:11px;
       }
       #scr-battle .side-top{ margin-bottom:1px; flex:none; }
-      #scr-battle .side-name{ font-size:.76rem; white-space:nowrap; }
-      #scr-battle .side-stats{ font-size:.57rem; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      #scr-battle .side-name{ font-size:.84rem; white-space:nowrap; }
+      #scr-battle .side-stats{ font-size:.7rem; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
       /* ゾーン行はカード実寸に合わせた auto 行で詰める（1frで引き伸ばさない）。余った縦はマットの余白として下に残る */
       #scr-battle .side-grid{ flex:1; min-height:0; gap:2px; align-content:start; grid-template-columns:42px 1fr 62px; grid-template-rows:auto auto auto; }
       #scr-battle .side-box.opp .side-grid{ grid-template-columns:62px 1fr 42px; grid-template-rows:auto auto auto; }
@@ -502,19 +514,22 @@
         --guardW:clamp(34px, 5.7dvh, 48px);
         --marW:clamp(38px, 6.6dvh, 56px);
       }
-      #scr-battle .ijin-zone{ max-height:none; padding:9px 3px 2px; min-height:calc(var(--ijinW) * 1.396 + 11px); align-items:center; }
+      #scr-battle .ijin-zone{ max-height:none; padding:15px 3px 2px; min-height:calc(var(--ijinW) * 1.396 + 17px); align-items:center; }
       #scr-battle .ijin-zone .mini{ width:var(--ijinW); }
       /* イジンは横に重ねない（体数が多いときはJS側で幅を縮めて全員を並べる） */
       #scr-battle .ijin-zone .mini + .mini{ margin-left:2px; }
-      #scr-battle .haikei-zone{ max-height:none; height:100%; padding:9px 3px 1px; }
-      #scr-battle .guardian-zone{ padding:9px 3px 2px; min-height:calc(var(--guardW) * 1.396 + 11px); align-items:center; }
-      #scr-battle .maryoku-zone{ min-height:calc(var(--marW) * 1.396 + 11px); padding:9px 3px 2px; align-items:center; }
-      #scr-battle .zlabel{ font-size:.54rem; top:1px; left:5px; }
+      #scr-battle .haikei-zone{ max-height:none; height:100%; padding:15px 3px 1px; }
+      #scr-battle .guardian-zone{ padding:15px 3px 2px; min-height:calc(var(--guardW) * 1.396 + 17px); align-items:center; }
+      #scr-battle .maryoku-zone{ min-height:calc(var(--marW) * 1.396 + 17px); padding:15px 3px 2px; align-items:center; }
+      #scr-battle .zlabel{ font-size:.66rem; top:1px; left:5px; }
       /* 空ゾーンは「（なし）」表示ぶんだけの高さに留める */
       #scr-battle .ijin-zone.empty, #scr-battle .guardian-zone.empty, #scr-battle .maryoku-zone.empty{ min-height:0; }
       #scr-battle .ijin-zone.empty::after, #scr-battle .guardian-zone.empty::after, #scr-battle .haikei-zone.empty::after, #scr-battle .maryoku-zone.empty::after{ padding-top:13px; }
       #scr-battle .pile{ min-height:0; padding:2px 1px; border-radius:8px; }
-      #scr-battle .pile .pn{ font-size:.95rem; }
+      #scr-battle .pile .pl{ font-size:.7rem; }
+      #scr-battle .pile .pn{ font-size:1.12rem; }
+      #scr-battle .pile .pt{ font-size:.6rem; }
+      #scr-battle .pile .ptap{ font-size:.6rem; }
       #scr-battle .deck-stack{ width:36px; height:46px; }
       #scr-battle .mini{ width:56px; border-radius:7px; }
       #scr-battle .mini.maryoku{ width:var(--marW); }
@@ -683,7 +698,7 @@
       }
       /* 手札ドック：固定高さ・横スクロール */
       .hand-dock{ flex:none; }
-      #scr-battle .zone-label{ margin:0 0 3px; font-size:.6rem; }
+      #scr-battle .zone-label{ margin:0 0 3px; font-size:.68rem; font-weight:800; }
       #scr-battle .hand-zone{
         flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; gap:5px;
         padding:3px 2px 5px; -webkit-overflow-scrolling:touch;
@@ -694,7 +709,7 @@
       /* カードサイズは dvh 連動変数（--ijinW 等）で高さに追従させるため、ブレークポイントでの段階縮小は廃止 */
       /* 防御中はバナーのぶん変数を少し絞って1画面に収める */
       #scr-battle.def-mode{ --ijinW:clamp(40px, 7.4dvh, 62px); --guardW:clamp(30px, 4.8dvh, 40px); --marW:clamp(34px, 5.4dvh, 46px); }
-      #scr-battle.def-mode .ijin-zone, #scr-battle.def-mode .guardian-zone, #scr-battle.def-mode .maryoku-zone, #scr-battle.def-mode .haikei-zone{ padding-top:7px; }
+      #scr-battle.def-mode .ijin-zone, #scr-battle.def-mode .guardian-zone, #scr-battle.def-mode .maryoku-zone, #scr-battle.def-mode .haikei-zone{ padding-top:12px; }
       #scr-battle.def-mode .hand-card{ width:48px; }
       #scr-battle.def-mode .hand-card.has-img{ width:46px; }
       /* アクションパネルは下部シートとして重ねる（レイアウトを押し広げない） */
@@ -5647,7 +5662,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           $("color2-title").textContent = "② CPUのデッキの色は？";
           $("color2-sub").innerHTML = "CPUは選んだ色の「おすすめ編成」40枚で戦うよ。あなたのデッキは <b id=\"cpu-screen-mycolor\"></b> です。";
           $("cpu-screen-mycolor").textContent = S.playerColor + "デッキ";
-          $("btn-to-build").textContent = "次へ：デッキを作る";
+          // 保存デッキで確定済みの場合は構築を飛ばして先行・後攻モーダルへ直行する（btn-to-build のクリック分岐と条件・文言を一致させる）
+          $("btn-to-build").textContent = (S.useSavedDeck && S.lastDecks.P && S.lastDecks.P.length === 40) ? "次へ：対戦をはじめる" : "次へ：デッキを作る";
         }
       }
       function startBuild(target){
