@@ -431,7 +431,9 @@
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
         background:#050506;
-        transition:opacity .8s ease, visibility 0s linear .8s;
+        /* 終了時の抜け（盤面が見えるまでの暗転）は .8s→.65s に短縮：ロゴが消えてから盤面が
+           見えるまでの黒い時間を約0.15秒だけ詰めた。フェード自体は残すので盤面は急に飛び出さない */
+        transition:opacity .65s ease, visibility 0s linear .65s;
       }
       .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .12s ease; }
       .di-base{ position:absolute; inset:0; background:#050506; opacity:1; transition:opacity 1.1s ease .3s; }
@@ -530,6 +532,17 @@
         align-items:center; justify-content:center; padding:20px;
       }
       .overlay.on{ display:flex; }
+      /* 先行・後攻モーダル→イントロのつなぎ：決定ボタンが少し沈み、モーダル全体が素早く（約0.16秒）
+         フェードアウトして、そのままイントロの黒い覆い→霧へ途切れずにつながる。大きなフェードは入れない。
+         フェード中もモーダルが画面全体を覆ったままタップを受け止める（下の画面へ素通りさせない）ので、
+         連打が下のボタンに届いて二重に開始することはない（決定ボタン自体もJSで無効化する） */
+      #overlay-first{ transition:opacity .16s ease; }
+      #overlay-first.leaving{ opacity:0; }
+      #overlay-first .big-btn{ transition:transform .1s ease, filter .1s ease; }
+      #overlay-first .big-btn:active, #overlay-first .big-btn.pressed{ transform:translateY(2px) scale(.97); filter:brightness(.93); }
+      /* 決定直後にJSで無効化しても、汎用の :disabled の減光（opacity:.35）で急に灰色にならないようにする
+         （押下フィードバックは「沈み」だけで見せ、モーダル全体のフェードと重ねる） */
+      #overlay-first .big-btn:disabled{ opacity:1; }
       .result-card{ background:var(--panel); color:var(--ink); border-radius:18px; padding:28px 22px; text-align:center; max-width:340px; width:100%; box-shadow:var(--shadow); }
       .result-card .r-emoji{ font-size:2.6rem; }
       .result-img{ width:88%; height:auto; display:block; margin:0 auto 2px; }
@@ -1190,12 +1203,11 @@
       <section class="screen" id="scr-gundan">
         <div class="panel" style="margin-top:22px;">
           <h2 class="mincho">軍団編成</h2>
-          <p class="sub">作ったデッキに名前を付けて、この端末に保存できるよ。保存したデッキは対戦のはじめに選ぶだけで、そのまま使える。</p>
           <div id="gundan-list"></div>
           <h3 class="gundan-new-title">新しいデッキを作る</h3>
-          <p class="sub" style="margin-bottom:8px;">色をタップで選んでね（2色まで＝ミックスデッキも作れるよ）。選んだら下のボタンで構築スタート。</p>
+          <p class="sub" style="margin-bottom:8px;">最大2色</p>
           <div class="color-grid" id="grid-gundan"></div>
-          <button class="big-btn" id="btn-gundan-start" disabled style="margin-top:10px;">色を選んでね</button>
+          <button class="big-btn" id="btn-gundan-start" disabled style="margin-top:10px;">色を選択</button>
           <button class="ghost-btn" id="btn-gundan-back">タイトルへもどる</button>
         </div>
       </section>
@@ -1204,18 +1216,18 @@
       <section class="screen" id="scr-online">
         <div class="panel" style="margin-top:22px;">
           <h2 class="mincho">2人対戦（オンライン）</h2>
-          <p class="sub">それぞれのスマホで対戦できるよ。片方が「部屋を作る」でコードを発行して、もう片方がそのコードを入力すると接続される。手札とガーディアンは自分の画面にしか表示されないよ。</p>
+          <p class="sub">手札・ガーディアンは自分の画面にのみ表示される。</p>
           <h3 class="gundan-new-title">部屋を作る（ホスト）</h3>
           <button class="big-btn accent" id="btn-net-create" style="margin-top:6px;">部屋を作る</button>
           <div id="net-code-box" style="display:none;">
-            <p class="sub" style="margin:12px 0 4px;">このコードを相手に伝えてね</p>
+            <p class="sub" style="margin:12px 0 4px;">接続コード</p>
             <div class="net-code" id="net-code">------</div>
           </div>
           <h3 class="gundan-new-title">部屋に入る（ゲスト）</h3>
           <input class="search-in" id="net-code-input" type="text" maxlength="6" placeholder="コードを入力（6文字）" autocomplete="off" autocapitalize="characters" />
           <button class="big-btn" id="btn-net-join" style="margin-top:8px;">部屋に入る</button>
           <p class="sub net-status-line" id="net-status" style="margin-top:14px;">接続状態：<span class="wait">未接続</span></p>
-          <p class="sub">※オンライン対戦は第1段階だよ：基本操作と効果の選択は同期するけど、一部の演出（カードの移動アニメーションなど）は相手側では簡略表示になることがある。切断時の再接続は未対応（切れたらその対戦は終了）。</p>
+          <p class="sub">※一部演出は相手側で簡略表示。切断時の再接続は未対応。</p>
           <button class="ghost-btn" id="btn-online-back">タイトルへもどる</button>
         </div>
       </section>
@@ -1229,7 +1241,7 @@
             <h3>あなたのデッキ</h3>
             <p class="sub" id="lobby-my-status">まだ選んでいない</p>
             <div id="lobby-saved-wrap">
-              <button type="button" class="saved-pick-toggle" id="lobby-saved-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span><span class="spt-sub">保存済みのデッキをそのまま読み込めるよ</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
+              <button type="button" class="saved-pick-toggle" id="lobby-saved-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
               <div id="lobby-saved-list" style="display:none;"></div>
             </div>
             <p class="sub" style="margin:10px 0 6px;">色を選んで新しく作る</p>
@@ -1237,7 +1249,7 @@
           </div>
           <div class="lobby-box">
             <h3>相手のデッキ</h3>
-            <p class="sub" id="lobby-foe-status">相手がデッキを選んでいるよ…</p>
+            <p class="sub" id="lobby-foe-status">相手がデッキを選択中…</p>
           </div>
           <div class="lobby-box" id="lobby-host-ctl">
             <h3>先行・後攻（ホストが選択）</h3>
@@ -1247,7 +1259,7 @@
             </div>
             <button class="big-btn accent" id="btn-net-start" disabled>対戦スタート</button>
           </div>
-          <p class="sub" id="lobby-guest-wait" style="display:none; margin-top:14px;">両方のデッキがそろったら、ホストが対戦を開始するよ。</p>
+          <p class="sub" id="lobby-guest-wait" style="display:none; margin-top:14px;">両デッキ確定後、ホストが対戦を開始</p>
           <button class="ghost-btn" id="btn-lobby-leave">部屋を出る</button>
         </div>
       </section>
@@ -1258,7 +1270,7 @@
           <h2 id="color1-title">どのデッキでダイブする？</h2>
           <div class="color-grid" id="grid-player"></div>
           <div id="saved-pick-wrap" style="display:none;">
-            <button type="button" class="saved-pick-toggle" id="saved-pick-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span><span class="spt-sub">保存済みのデッキをそのまま読み込めるよ</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
+            <button type="button" class="saved-pick-toggle" id="saved-pick-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
             <div id="saved-pick-list" style="display:none;"></div>
           </div>
           <button class="big-btn accent" id="btn-to-cpu" disabled>次へ：CPUの色を選ぶ</button>
@@ -1270,10 +1282,9 @@
       <section class="screen" id="scr-color2">
         <div class="panel" style="margin-top:22px;">
           <h2 id="color2-title">② CPUのデッキの色は？</h2>
-          <p class="sub" id="color2-sub">CPUは選んだ色の「おすすめ編成」40枚で戦うよ。あなたのデッキは <b id="cpu-screen-mycolor"></b> です。</p>
+          <p class="sub" id="color2-sub">あなたのデッキ：<b id="cpu-screen-mycolor"></b></p>
           <div class="color-grid" id="grid-cpu"></div>
-          <p class="sub" style="margin:10px 0 0;">※紫の55種は、通常の45種＋プロモカード10種の合計だよ。</p>
-          <button class="big-btn accent" id="btn-to-build" disabled>次へ：デッキを作る</button>
+          <button class="big-btn accent" id="btn-to-build" disabled>次へ：先行・後攻を選ぶ</button>
           <button class="ghost-btn" id="btn-back1">もどる</button>
         </div>
       </section>
@@ -1461,7 +1472,6 @@
     <div class="overlay" id="overlay-first">
       <div class="result-card">
         <h2 class="mincho" style="margin-top:0;">先行・後攻</h2>
-        <p class="sub" id="first-desc">どちらで始める？</p>
         <div id="first-diff">
           <p class="sub" style="margin:10px 0 6px;">CPUの強さ</p>
           <div class="diff-row">
@@ -1526,7 +1536,6 @@
     <div class="overlay" id="overlay-name">
       <div class="result-card">
         <h2 class="mincho" style="margin-top:0;">デッキの名前</h2>
-        <p class="sub">保存するデッキに名前を付けてね。</p>
         <input class="search-in" id="deck-name-input" type="text" maxlength="24" placeholder="例：紫の本命デッキ" autocomplete="off" />
         <button class="big-btn accent" id="btn-name-save">保存する</button>
         <button class="ghost-btn" id="btn-name-cancel">キャンセル</button>
@@ -5954,14 +5963,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       function configColor2(){
         if (S.gameMode === "2p"){
           $("color2-title").textContent = "② プレイヤー2のデッキの色は？";
-          $("color2-sub").innerHTML = "プレイヤー2の色を選んでね。プレイヤー1のデッキは <b>" + S.playerColor + "デッキ</b> です。";
+          $("color2-sub").innerHTML = "プレイヤー1のデッキ：<b>" + S.playerColor + "デッキ</b>";
           $("btn-to-build").textContent = "次へ：プレイヤー2のデッキを作る";
         } else {
           $("color2-title").textContent = "② CPUのデッキの色は？";
-          $("color2-sub").innerHTML = "CPUは選んだ色の「おすすめ編成」40枚で戦うよ。あなたのデッキは <b id=\"cpu-screen-mycolor\"></b> です。";
+          $("color2-sub").innerHTML = "あなたのデッキ：<b id=\"cpu-screen-mycolor\"></b>";
           $("cpu-screen-mycolor").textContent = S.playerColor + "デッキ";
-          // 保存デッキで確定済みの場合は構築を飛ばして先行・後攻モーダルへ直行する（btn-to-build のクリック分岐と条件・文言を一致させる）
-          $("btn-to-build").textContent = (S.useSavedDeck && S.lastDecks.P && S.lastDecks.P.length === 40) ? "次へ：対戦をはじめる" : "次へ：デッキを作る";
+          // 保存デッキ時も通常時もラベルは統一（保存デッキの場合は構築を飛ばして先行・後攻モーダルへ直行する）
+          $("btn-to-build").textContent = "次へ：先行・後攻を選ぶ";
         }
       }
       function startBuild(target){
@@ -6140,7 +6149,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const box = $("gundan-list"); box.innerHTML = "";
         const list = loadMyDecks();
         if (!list.length){
-          box.innerHTML = '<div class="gundan-empty">まだ保存したデッキがないよ。下の色から選んで、最初の軍団を作ってみてね。</div>';
+          box.innerHTML = '<div class="gundan-empty">保存したデッキなし</div>';
           return;
         }
         list.forEach(function(d){
@@ -6247,7 +6256,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         });
         const sb = $("btn-gundan-start");
         sb.disabled = !gundanSelColors.length;
-        sb.textContent = !gundanSelColors.length ? "色を選んでね"
+        sb.textContent = !gundanSelColors.length ? "色を選択"
           : (gundanSelColors.length === 2 ? gundanSelColors.join("・") + " ミックスでデッキを作る" : gundanSelColors[0] + "でデッキを作る");
       }
       renderGundanGrid();
@@ -6282,7 +6291,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "");
           b.innerHTML =
             deckDotsHtml(d) +
-            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚で対戦に使えるよ）' : dTotal + '枚') + '</span></span>' +
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚）' : dTotal + '枚') + '</span></span>' +
             '<span class="go">' + (isDraft ? '枚数不足' : 'このデッキで進む ›') + '</span>';
           b.querySelector(".nm").textContent = d.name;
           if (isDraft){
@@ -6342,7 +6351,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           // 途中保存：40枚未満でも保存できる（軍団編成のときだけ出す。0枚のときと、完成時は通常保存に任せるので無効）
           drBtn.style.display = "";
           drBtn.disabled = (total === 0 || total === 40);
-          drBtn.textContent = total === 40 ? "途中保存（40枚そろったので下のボタンで保存してね）" : "途中保存（いま " + total + "/40枚）";
+          drBtn.textContent = "途中保存（" + total + "/40枚）";
         } else {
           svBtn.style.display = "";
           svBtn.disabled = (total !== 40);
@@ -6412,7 +6421,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         } else {
           visible.forEach(appendCard);
         }
-        if (!visible.length) list.innerHTML = '<p style="color:var(--ink2); font-size:.85rem;">該当するカードがないよ。</p>';
+        if (!visible.length) list.innerHTML = '<p style="color:var(--ink2); font-size:.85rem;">該当するカードなし</p>';
       }
       $("db-filters").addEventListener("click", function(e){
         const b = e.target.closest("button"); if (!b) return;
@@ -6468,30 +6477,45 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       function askFirstAndStart(deckP, deckC){
         pendingStart = { P: deckP, C: deckC };
         if (S.gameMode === "2p"){
-          $("first-desc").textContent = "プレイヤー1が先行か後攻か選んでね。先行の最初のターンはドローなしだよ。";
           $("btn-first-me").textContent = "プレイヤー1が先行";
           $("btn-first-foe").textContent = "プレイヤー1が後攻（プレイヤー2が先行）";
         } else {
-          $("first-desc").textContent = "どちらで始める？ 後攻を選ぶとCPUが先行になるよ。先行の最初のターンはドローなし。";
           $("btn-first-me").textContent = "先行で始める";
           $("btn-first-foe").textContent = "後攻で始める";
         }
         $("first-diff").style.display = S.gameMode === "2p" ? "none" : "";
         refreshDiffBtns();
-        $("overlay-first").classList.add("on");
+        // 再戦などでモーダルを出し直すときは、つなぎ演出の状態（沈み・フェード・決定済み）を必ず初期化する
+        firstDecided = false;
+        const ovF = $("overlay-first");
+        ovF.classList.remove("leaving");
+        ["btn-first-me", "btn-first-foe"].forEach(function(id){
+          const b = $(id); b.disabled = false; b.classList.remove("pressed");
+        });
+        ovF.classList.add("on");
       }
-      $("btn-first-me").addEventListener("click", function(){
-        $("overlay-first").classList.remove("on");
-        if (!pendingStart) return;
+      /* 決定のつなぎ：押した瞬間にボタンが少し沈み、モーダル全体が素早くフェードアウトして、
+         そのまま途切れずにイントロ（startGame→先覆い→霧）へ渡す。待ち時間は増やさない
+         （フェード約0.16秒に合わせた約0.14秒だけ開始を遅らせ、覆いが被る頃にはモーダルはほぼ消えている）。
+         連打対策：最初の一押しで pendingStart を即座に無効化し、両ボタンも無効化する。
+         フェード中もモーダルは画面を覆ったままなので、タップが下の画面へ素通りすることもない */
+      let firstDecided = false;
+      function decideFirst(firstKey, btn){
+        if (!pendingStart || firstDecided) return;
+        firstDecided = true;
         const d = pendingStart; pendingStart = null;
-        startGame(d.P, d.C, "P");
-      });
-      $("btn-first-foe").addEventListener("click", function(){
-        $("overlay-first").classList.remove("on");
-        if (!pendingStart) return;
-        const d = pendingStart; pendingStart = null;
-        startGame(d.P, d.C, "C");
-      });
+        const ov = $("overlay-first");
+        if (btn) btn.classList.add("pressed");
+        $("btn-first-me").disabled = true;
+        $("btn-first-foe").disabled = true;
+        ov.classList.add("leaving");
+        setTimeout(function(){
+          ov.classList.remove("on"); ov.classList.remove("leaving");
+          startGame(d.P, d.C, firstKey);
+        }, reducedMotion() ? 0 : 140);
+      }
+      $("btn-first-me").addEventListener("click", function(){ decideFirst("P", this); });
+      $("btn-first-foe").addEventListener("click", function(){ decideFirst("C", this); });
       function refreshDiffBtns(){
         document.querySelectorAll(".diff-btn").forEach(function(b){ b.classList.toggle("sel", b.getAttribute("data-lv") === S.cpuLevel); });
       }
@@ -9863,7 +9887,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const ms = $("lobby-my-status");
         if (ms) ms.textContent = NET.myDeck ? "準備OK（" + NET.myColor + "デッキ・40枚）" : "まだ選んでいない";
         const fs = $("lobby-foe-status");
-        if (fs) fs.textContent = NET.foeReady ? "準備OK（" + NET.foeColor + "デッキ）" : "相手がデッキを選んでいるよ…";
+        if (fs) fs.textContent = NET.foeReady ? "準備OK（" + NET.foeColor + "デッキ）" : "相手がデッキを選択中…";
         const hc = $("lobby-host-ctl"); if (hc) hc.style.display = NET.isHost() ? "" : "none";
         const gw = $("lobby-guest-wait"); if (gw) gw.style.display = NET.isGuest() ? "" : "none";
         const st = $("btn-net-start"); if (st) st.disabled = !(NET.isHost() && !!NET.myDeck && NET.foeReady);
@@ -9883,7 +9907,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           b.type = "button"; b.className = "saved-deck-item" + (isDraft ? " is-draft" : "");
           b.innerHTML =
             deckDotsHtml(d) +
-            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚で対戦に使えるよ）' : dTotal + '枚') + '</span></span>' +
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中（あと' + (40 - dTotal) + '枚）' : dTotal + '枚') + '</span></span>' +
             '<span class="go">' + (isDraft ? '枚数不足' : 'このデッキにする ›') + '</span>';
           b.querySelector(".nm").textContent = d.name;
           if (isDraft){
@@ -10173,7 +10197,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         },
         /* ---- 部屋の作成／参加 ---- */
         createRoom: function(){
-          if (typeof Peer === "undefined"){ setOnlineStatus("bad", "通信ライブラリを読み込めなかったよ。通信環境を確認して、ページを開き直してね。"); return; }
+          if (typeof Peer === "undefined"){ setOnlineStatus("bad", "通信ライブラリの読み込みに失敗"); return; }
           NET.disconnect();
           NET.role = "host"; S.gameMode = "online"; NET._retried = false;
           NET.code = netGenCode();
@@ -10185,7 +10209,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         _hostPeer: function(){
           const peer = new Peer(NET_PREFIX + NET.code);
           NET.peer = peer;
-          peer.on("open", function(){ setOnlineStatus("wait", "接続待ち ― このコードを相手に伝えてね"); });
+          peer.on("open", function(){ setOnlineStatus("wait", "接続待ち"); });
           peer.on("connection", function(conn){
             if (NET.conn){ conn.on("open", function(){ try { conn.close(); } catch(e){} }); return; }
             NET._bindConn(conn);
@@ -10193,9 +10217,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           peer.on("error", function(err){ NET._peerError(err); });
         },
         joinRoom: function(){
-          if (typeof Peer === "undefined"){ setOnlineStatus("bad", "通信ライブラリを読み込めなかったよ。通信環境を確認して、ページを開き直してね。"); return; }
+          if (typeof Peer === "undefined"){ setOnlineStatus("bad", "通信ライブラリの読み込みに失敗"); return; }
           const raw = $("net-code-input").value.trim().toLowerCase();
-          if (raw.length !== 6){ setOnlineStatus("bad", "コードは6文字だよ。確認してね。"); return; }
+          if (raw.length !== 6){ setOnlineStatus("bad", "コードは6文字"); return; }
           NET.disconnect();
           NET.role = "guest"; S.gameMode = "online"; NET.code = raw;
           setOnlineStatus("wait", "部屋に接続中…");
@@ -10210,7 +10234,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         _peerError: function(err){
           const t = err && err.type;
           if (t === "peer-unavailable"){
-            setOnlineStatus("bad", "そのコードの部屋が見つからなかったよ。コードを確認してね。");
+            setOnlineStatus("bad", "部屋が見つからない");
           } else if (t === "unavailable-id" && NET.isHost() && !NET._retried){
             NET._retried = true;
             NET.code = netGenCode();
@@ -10218,7 +10242,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             try { NET.peer.destroy(); } catch(e){}
             NET._hostPeer();
           } else if (t === "network" || t === "server-error"){
-            setOnlineStatus("bad", "接続サーバーに届かなかったよ。通信環境を確認してね。");
+            setOnlineStatus("bad", "接続サーバーに到達できない");
           } else if (t){
             setOnlineStatus("bad", "接続エラー（" + t + "）");
           }
