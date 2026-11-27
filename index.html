@@ -895,7 +895,7 @@
          色選択×2・デッキ構築・各種モーダルの範囲だけ CSS変数を濃色に差し替え、
          中の部品は既存ルールのまま濃色で描く（骨格・機能は不変） */
       #scr-color1, #scr-color2, #scr-build, #scr-gundan,
-      #overlay-first, #overlay-result, #overlay-grave, #overlay-fx, #overlay-zoom, #overlay-handoff, #overlay-name{
+      #overlay-first, #overlay-result, #overlay-grave, #overlay-fx, #overlay-zoom, #overlay-handoff, #overlay-name, #overlay-deckcode, #overlay-deckimport{
         --bg:#0d1220; --bg2:#0a0e18; --panel:#1c2438; --panel2:#141a2c;
         --ink:#ece5d0; --ink2:#a9b2c9; --line:rgba(199,164,90,.42);
         --accent:#b07fe0; --gold:#d9ab3c; --danger:#e0565f; --good:#5cb87a;
@@ -916,7 +916,7 @@
       }
       /* モーダルのカードにも金の細枠を付けて世界観を揃える */
       #overlay-first .result-card, #overlay-result .result-card, #overlay-grave .result-card,
-      #overlay-fx .result-card, #overlay-handoff .result-card, #overlay-zoom .zoom-card, #overlay-name .result-card{
+      #overlay-fx .result-card, #overlay-handoff .result-card, #overlay-zoom .zoom-card, #overlay-name .result-card, #overlay-deckcode .result-card, #overlay-deckimport .result-card{
         border:1px solid rgba(199,164,90,.5);
       }
       /* おすすめボタンは金地に濃色文字で読みやすく */
@@ -976,6 +976,15 @@
         border:1px dashed var(--line); border-radius:11px; padding:12px 13px; margin-bottom:4px;
       }
       #overlay-name .search-in{ text-align:left; margin-bottom:2px; }
+      /* デッキコード（書き出し・読み込み）：狭い画面ではデッキ行のボタンを折り返す */
+      .gundan-item .g-act{ flex-wrap:wrap; justify-content:flex-end; }
+      .code-area{
+        width:100%; box-sizing:border-box; min-height:104px; resize:vertical;
+        background:var(--panel2); color:var(--ink); border:1.5px solid var(--line); border-radius:11px;
+        padding:10px 12px; font-size:.78rem; line-height:1.5; word-break:break-all; text-align:left;
+        font-family:ui-monospace, Menlo, Consolas, monospace; margin:6px 0 2px;
+      }
+      .code-msg.err{ color:var(--danger); font-weight:700; }
       #btn-save-deck:disabled{ opacity:.35; cursor:not-allowed; }
 
       /* ---------- 遊び方（ルール）の折りたたみ ---------- */
@@ -1158,7 +1167,7 @@
             <li><b>バトル</b>（1ターン1回）：起きているイジン1体以上を同時にアタッカーにする。相手はイジンやガーディアンでブロックできて、ブロックされなかったアタッカーが1体でも解決されたら<b>攻撃側の勝利</b>。</li>
             <li><b>勝敗</b>：攻撃を通すか、相手がターン開始時に山札0枚だと勝ち。</li>
             <li>※<b>全色プール実装済み</b>（紫・赤・黄・青・緑すべてのカードに固有効果を実装。遺業・冥府発動・復元・魔力化・喪神・即応・ダブルプレッシャー・ドレイン・執筆・勝鬨・モータル・装備・航海など）。</li>
-            <li>※一部カードは、公式テキストのうち「カード名の宣言」は公開情報（墓地・戦場）のカード名から選ぶ方式、「ドッペルゲンガー」は裏向きのガーディアンを対象外にするなど、簡易化して実装しているものがあるよ（各カードの詳細に注記あり）。緑では、モーツァルトの「墓地のカードの能力喪失」、シューベルト／ベートーヴェンの「墓地からの移動封じ」、禁制の御殿の「手札に戻らない」効果が未実装だよ。</li>
+            <li>※一部カードは、公式テキストのうち「カード名の宣言」は公開情報（墓地・戦場）のカード名から選ぶ方式、「ドッペルゲンガー」は裏向きのガーディアンを対象外にするなど、簡易化して実装しているものがある（各カードの詳細に注記あり）。緑では、モーツァルトの「墓地のカードの能力喪失」、シューベルト／ベートーヴェンの「墓地からの移動封じ」、禁制の御殿の「手札に戻らない」効果が未実装だ。</li>
           </ul>
           </div>
         </div>
@@ -1169,6 +1178,10 @@
         <div class="panel" style="margin-top:22px;">
           <h2 class="mincho">軍団編成</h2>
           <div id="gundan-list"></div>
+          <h3 class="gundan-new-title">デッキコード（引っ越し）</h3>
+          <p class="sub" style="margin-bottom:8px;">保存したデッキは、各デッキの「コード」ボタンでコードにできる。そのコードを別の場所（GitHub版など）の軍団編成で読み込むと、同じデッキがそのまま使える。</p>
+          <button class="big-btn" id="btn-code-import-open" type="button">コードを貼り付けて読み込む</button>
+          <p class="sub" id="code-import-done" style="display:none; margin-top:8px; color:var(--good); font-weight:700;"></p>
           <h3 class="gundan-new-title">新しいデッキを作る</h3>
           <p class="sub" style="margin-bottom:8px;">最大2色</p>
           <div class="color-grid" id="grid-gundan"></div>
@@ -1185,7 +1198,7 @@
           <h3 class="gundan-new-title">部屋を作る（ホスト）</h3>
           <button class="big-btn accent" id="btn-net-create" style="margin-top:6px;">部屋を作る</button>
           <div id="net-code-box" style="display:none;">
-            <p class="sub" style="margin:12px 0 4px;">あいことば（相手に教えてね）</p>
+            <p class="sub" style="margin:12px 0 4px;">あいことば（相手に伝える）</p>
             <div class="net-code" id="net-code">・・・</div>
           </div>
           <h3 class="gundan-new-title">部屋に入る（ゲスト）</h3>
@@ -1467,7 +1480,7 @@
     <div class="overlay grave-overlay" id="overlay-grave">
       <div class="result-card grave-card">
         <h2 id="grave-title">墓地</h2>
-        <p>墓地は公開情報だよ。一番上が最新に置かれたカード。</p>
+        <p>墓地は公開情報だ。一番上が最新に置かれたカード。</p>
         <div class="grave-list" id="grave-list"></div>
         <button class="big-btn accent" id="btn-grave-close">閉じる</button>
       </div>
@@ -1504,6 +1517,30 @@
         <input class="search-in" id="deck-name-input" type="text" maxlength="24" placeholder="例：紫の本命デッキ" autocomplete="off" />
         <button class="big-btn accent" id="btn-name-save">保存する</button>
         <button class="ghost-btn" id="btn-name-cancel">キャンセル</button>
+      </div>
+    </div>
+
+    <!-- デッキコード：書き出し（コピー用） -->
+    <div class="overlay" id="overlay-deckcode">
+      <div class="result-card">
+        <h2 class="mincho" style="margin-top:0;">デッキコード</h2>
+        <p id="deckcode-name"></p>
+        <textarea class="code-area" id="deckcode-text" readonly></textarea>
+        <p class="code-msg" id="deckcode-msg">このコードをコピーして、引っ越し先の「軍団編成 → コードを貼り付けて読み込む」に貼り付ける。</p>
+        <button class="big-btn accent" id="btn-deckcode-copy" type="button">コードをコピー</button>
+        <button class="ghost-btn" id="btn-deckcode-close" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <!-- デッキコード：読み込み（貼り付け用） -->
+    <div class="overlay" id="overlay-deckimport">
+      <div class="result-card">
+        <h2 class="mincho" style="margin-top:0;">コードで読み込む</h2>
+        <p>デッキコードを貼り付ける。読み込むと保存デッキの一覧に追加される。</p>
+        <textarea class="code-area" id="deckimport-text" placeholder="IJD1. から始まるコードを貼り付け" autocomplete="off"></textarea>
+        <p class="code-msg err" id="deckimport-msg" style="display:none;"></p>
+        <button class="big-btn accent" id="btn-deckimport-do" type="button">読み込む</button>
+        <button class="ghost-btn" id="btn-deckimport-cancel" type="button">キャンセル</button>
       </div>
     </div>
 
@@ -1827,10 +1864,10 @@
         if (f2){
           if (f2.st === "ok") return "";
           if (f2.st === "part") return "（※効果は一部のみ実装：" + (f2.note || "") + "）";
-          if (f2.st === "kw") return c.vn ? "（バニラ：固有の発動効果はないよ）" : "（キーワード・常時効果・遺業のみのカードだよ）";
+          if (f2.st === "kw") return c.vn ? "（バニラ：固有の発動効果はない）" : "（キーワード・常時効果・遺業のみのカードだ）";
           return "";
         }
-        if (c.vn) return "（バニラ：固有の発動効果はないよ）";
+        if (c.vn) return "（バニラ：固有の発動効果はない）";
         if (c.text) return "（※このカードの効果は未実装）";
         return "";
       }
@@ -1986,7 +2023,7 @@
           if (dz && !G.over){
             let place = false;
             if (isHuman(sideKey)){
-              const pick = await fxChoose("「ベンジャミン・ディズレーリ」の能力", "レベル3以下のイジン召喚に際し、手札の「ベンジャミン・ディズレーリ」を戦場に置けるよ。置く？", [{ label: "戦場に置く" }, { label: "置かない" }], sideKey);
+              const pick = await fxChoose("「ベンジャミン・ディズレーリ」の能力", "レベル3以下のイジン召喚に際し、手札の「ベンジャミン・ディズレーリ」を戦場に置ける。置く？", [{ label: "戦場に置く" }, { label: "置かない" }], sideKey);
               place = (pick === 0);
             } else place = s.field.length <= 5;
             if (place){
@@ -2017,7 +2054,7 @@
               if (isHuman(k)){
                 const opts = cands.map(function(g){ return { label: "「" + g.name + "」を手札に戻す", sub: "マホウ Lv" + CARD[g.name].level }; });
                 opts.push({ label: "発動しない", sub: "" });
-                const pi = await fxChoose("「藤原頼通」の能力【執筆】", "ハイケイが戦場に置かれた。レベル" + lv + "以下の墓地のマホウ1つを手札に戻せるよ。", opts, k);
+                const pi = await fxChoose("「藤原頼通」の能力【執筆】", "ハイケイが戦場に置かれた。レベル" + lv + "以下の墓地のマホウ1つを手札に戻せる。", opts, k);
                 if (pi < cands.length) pick = cands[pi];
               } else pick = cands[0];
               if (pick){
@@ -2059,14 +2096,14 @@
           const targets = G[foeK2].field.filter(function(f){ return effPower(foeK2, f) <= 5000; });
           if (!targets.length) continue;
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「メアリー・ゴドウィン・シェリー」の能力【執筆】", "ハイケイが戦場に置かれた。置かれたハイケイ「" + h.name + "」と、相手のパワー5000以下のイジン1体を破壊できるよ（ターンに1回）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+          if (isHuman(k)){ const p = await fxChoose("「メアリー・ゴドウィン・シェリー」の能力【執筆】", "ハイケイが戦場に置かれた。置かれたハイケイ「" + h.name + "」と、相手のパワー5000以下のイジン1体を破壊できる（ターンに1回）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
           else go = (sideKey !== k) || CARD[h.name].level <= 3;
           if (!go) continue;
           s.sherrySeq = G.turnSeq;
           let tp = targets.slice().sort(function(a, b){ return effPower(foeK2, b) - effPower(foeK2, a); })[0];
           if (isHuman(k) && targets.length > 1){
             const opts = targets.map(function(f){ return { label: "「" + f.name + "」を破壊する", sub: "パワー" + effPower(foeK2, f) }; });
-            const pi = await fxChoose("破壊する相手のイジン", "パワー5000以下の相手のイジン1体を選んでね。", opts, k);
+            const pi = await fxChoose("破壊する相手のイジン", "パワー5000以下の相手のイジン1体を選ぶ。", opts, k);
             tp = targets[pi];
           }
           log("「メアリー・ゴドウィン・シェリー」の能力【執筆】！「" + h.name + "」と「" + tp.name + "」を破壊する！");
@@ -2085,7 +2122,7 @@
           if (isHuman(k)){
             const opts = cands.map(function(g){ return { label: "「" + g.name + "」を手札に戻す", sub: "黄のマホウ Lv" + CARD[g.name].level }; });
             opts.push({ label: "発動しない", sub: "" });
-            const pi = await fxChoose("「ルイス・ヘンリー・モーガン」の能力【執筆】", "ハイケイが戦場に置かれた。自分の墓地の黄のマホウ1つを手札に戻せるよ。", opts, k);
+            const pi = await fxChoose("「ルイス・ヘンリー・モーガン」の能力【執筆】", "ハイケイが戦場に置かれた。自分の墓地の黄のマホウ1つを手札に戻せる。", opts, k);
             if (pi < cands.length) pick = cands[pi];
           } else pick = cands[0];
           if (pick){
@@ -2126,7 +2163,7 @@
             const draws = Math.floor(yellowN / 3);
             if (draws > 0){
               let go = false;
-              if (isHuman(sideKey)){ const p = await fxChoose("「マザーグース」の能力【執筆】", "ハイケイが戦場に置かれた。自分の戦場の黄のカード" + yellowN + "つにつき1ドロー（" + draws + "ドロー）して、「マザーグース」を破壊できるよ。発動する？", [{ label: "発動する（" + draws + "ドロー）" }, { label: "発動しない" }], sideKey); go = (p === 0); }
+              if (isHuman(sideKey)){ const p = await fxChoose("「マザーグース」の能力【執筆】", "ハイケイが戦場に置かれた。自分の戦場の黄のカード" + yellowN + "つにつき1ドロー（" + draws + "ドロー）して、「マザーグース」を破壊できる。発動する？", [{ label: "発動する（" + draws + "ドロー）" }, { label: "発動しない" }], sideKey); go = (p === 0); }
               else go = draws >= 2;
               if (go){
                 await drawCards(sideKey, draws);
@@ -2147,11 +2184,11 @@
             ["P","C"].forEach(function(k2){ G[k2].field.forEach(function(f){ const fc = CARD[f.name].color || ""; if (cols.some(function(ch){ return fc.indexOf(ch) >= 0; })) targets.push({ k: k2, f: f }); }); });
             if (!targets.length) continue;
             let go = false;
-            if (isHuman(k)){ const p = await fxChoose("「デジデリウス・エラスムス」の能力【執筆】", "ハイケイ「" + h.name + "」が戦場に置かれた。そのハイケイと同じ色を持つイジン1体を手札に戻せるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+            if (isHuman(k)){ const p = await fxChoose("「デジデリウス・エラスムス」の能力【執筆】", "ハイケイ「" + h.name + "」が戦場に置かれた。そのハイケイと同じ色を持つイジン1体を手札に戻せる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
             else go = targets.some(function(t){ return t.k !== k; });
             if (!go) continue;
             const cands = targets.map(function(t){ return { k: t.k, kind: "ijin", inst: t.f, label: "「" + t.f.name + "」を手札に戻す", sub: whoName(t.k) + "の戦場 ・ パワー" + effPower(t.k, t.f), score: function(){ return (t.k === k ? -1 : 2) * effPower(t.k, t.f); } }; });
-            const pick = await fxPickOne(k, "「デジデリウス・エラスムス」の能力【執筆】", "手札に戻すイジンを選んでね。", cands);
+            const pick = await fxPickOne(k, "「デジデリウス・エラスムス」の能力【執筆】", "手札に戻すイジンを選ぶ。", cands);
             if (pick){
               const owner = G[pick.k];
               owner.field = owner.field.filter(function(f){ return f.uid !== pick.inst.uid; });
@@ -2184,7 +2221,7 @@
         if (isHuman(k)){
           const opts = cands.map(function(h){ return { label: "「" + h.name + "」と交代する", sub: "Lv" + CARD[h.name].level + " パワー" + CARD[h.name].power }; });
           opts.push({ label: "交代しない", sub: "" });
-          const pi = await fxChoose("「ねね」の能力", "メインフェイズ開始時：手札のレベル5以下の赤のイジン1体を戦場に置いて、「ねね」を手札に戻せるよ。", opts, k);
+          const pi = await fxChoose("「ねね」の能力", "メインフェイズ開始時：手札のレベル5以下の赤のイジン1体を戦場に置いて、「ねね」を手札に戻せる。", opts, k);
           if (pi < cands.length) pick = cands[pi];
         } else {
           pick = cands.slice().sort(function(a, b){ return CARD[b.name].power - CARD[a.name].power; })[0];
@@ -2289,7 +2326,7 @@
         // 遠征軍：自分のエンドフェイズ開始時、これを山札の上に戻せる
         for (const hk of sd.haikei.filter(function(x){ return x.name === "遠征軍" && !x.faceDown; })){
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「遠征軍」の能力", "エンドフェイズ：このハイケイ「遠征軍」を山札の上に戻せるよ。戻す？", [{ label: "山札の上に戻す" }, { label: "戻さない" }], k); go = (p === 0); }
+          if (isHuman(k)){ const p = await fxChoose("「遠征軍」の能力", "エンドフェイズ：このハイケイ「遠征軍」を山札の上に戻せる。戻す？", [{ label: "山札の上に戻す" }, { label: "戻さない" }], k); go = (p === 0); }
           if (go){
             sd.haikei = sd.haikei.filter(function(x){ return x.uid !== hk.uid; });
             sd.deck.unshift({ uid: hk.uid, name: hk.name });
@@ -2300,7 +2337,7 @@
         // 四面楚歌：相手のエンドフェイズ開始時、その持ち主は自分の山札の上1枚を墓地に置ける
         if (foe.haikei.some(function(x){ return x.name === "四面楚歌" && !x.faceDown; }) && foe.deck.length){
           let go = false;
-          if (isHuman(foeK)){ const p = await fxChoose("「四面楚歌」の能力", "相手のエンドフェイズ：自分の山札の上1枚を墓地に置けるよ。置く？", [{ label: "置く" }, { label: "置かない" }], foeK); go = (p === 0); }
+          if (isHuman(foeK)){ const p = await fxChoose("「四面楚歌」の能力", "相手のエンドフェイズ：自分の山札の上1枚を墓地に置ける。置く？", [{ label: "置く" }, { label: "置かない" }], foeK); go = (p === 0); }
           else go = foe.deck.length > 5;
           if (go){
             const milled = millCards(foeK, 1);
@@ -2311,13 +2348,13 @@
         if (haikeiActive(foe, "クリスタル・パレス") && !haikeiDisabled(foeK) && foe.hand.length >= 2){
           let doit = false;
           if (isHuman(foeK)){
-            const pick = await fxChoose("「クリスタル・パレス」の能力", "相手のエンドフェイズ：手札2枚を好きな順番で山札の下に戻して、1ドローできるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], foeK);
+            const pick = await fxChoose("「クリスタル・パレス」の能力", "相手のエンドフェイズ：手札2枚を好きな順番で山札の下に戻して、1ドローできる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], foeK);
             doit = (pick === 0);
           } else doit = foe.hand.length >= 4;
           if (doit){
             let ret;
             if (isHuman(foeK)){
-              const idxs = await fxMulti("「クリスタル・パレス」の能力", "山札の下に戻す手札2枚を選んでね（選んだ順に下へ）。", foe.hand.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; }), 2, foeK);
+              const idxs = await fxMulti("「クリスタル・パレス」の能力", "山札の下に戻す手札2枚を選ぶ（選んだ順に下へ）。", foe.hand.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; }), 2, foeK);
               ret = idxs.map(function(i){ return foe.hand[i]; });
             } else ret = foe.hand.slice(0, 2);
             ret.forEach(function(h){ foe.hand = foe.hand.filter(function(x){ return x.uid !== h.uid; }); foe.deck.push({ uid: h.uid, name: h.name }); });
@@ -2336,13 +2373,13 @@
         const D = G[defKey], foeK = foeKeyOf(defKey), foe = G[foeK];
         const rk = D.maryoku.find(function(m){ return m.name === "遁甲式烈火"; });
         if (!rk || !D.guardians.length) return;
-        if (abilitiesBlocked()){ if (isHuman(defKey)) await fxInfo("「遁甲式烈火」は発動できない", "ピラーの効果で、戦場と魔力ゾーンの能力は発動できないよ。", defKey); return; }
+        if (abilitiesBlocked()){ if (isHuman(defKey)) await fxInfo("「遁甲式烈火」は発動できない", "ピラーの効果で、戦場と魔力ゾーンの能力は発動できない。", defKey); return; }
         G.rekkaBusy = true;
         try {
           let g = D.guardians[0];
           if (isHuman(defKey) && D.guardians.length > 1){
             const opts = D.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を山札の上に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: defKey, uid: x.uid } }; });
-            const pi = await fxChoose("「遁甲式烈火」の能力", "山札の上に戻す自分のガーディアンを選んでね。", opts, defKey);
+            const pi = await fxChoose("「遁甲式烈火」の能力", "山札の上に戻す自分のガーディアンを選ぶ。", opts, defKey);
             g = D.guardians[pi];
           }
           rk.faceUp = true;
@@ -2371,7 +2408,7 @@
             const G = S.G;
             if (!["P","C"].some(function(k2){ return G[k2].haikei.length; })) return;
             let go = false;
-            if (isHuman(k)){ const p = await fxChoose("「クレオパトラ」の能力", "戦場のハイケイすべてを破壊できるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+            if (isHuman(k)){ const p = await fxChoose("「クレオパトラ」の能力", "戦場のハイケイすべてを破壊できる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
             else go = G[foeKeyOf(k)].haikei.length > 0 && G[foeKeyOf(k)].haikei.length >= G[k].haikei.length;
             if (!go) return;
             const evs = [];
@@ -2386,7 +2423,7 @@
             let g = sd.guardians[0];
             if (isHuman(k) && sd.guardians.length > 1){
               const opts = sd.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を山札の上に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: k, uid: x.uid } }; });
-              const pi = await fxChoose("「明智光秀」の能力", "山札の上に戻す自分のガーディアンを選んでね。", opts, k);
+              const pi = await fxChoose("「明智光秀」の能力", "山札の上に戻す自分のガーディアンを選ぶ。", opts, k);
               g = sd.guardians[pi];
             }
             sd.guardians = sd.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -2702,8 +2739,8 @@
           mahou: async function(k, inst, viaMeifu){
             const own = ownIjinCands(k), foe = foeIjinCands(k);
             if (!own.length || !foe.length){ log("「バレット」：対象のイジンが揃わず、効果は発動しなかった。"); return; }
-            const p1 = await fxPickOne(k, "「バレット」の能力（自分のイジン）", "自分の戦場のイジン1体と相手の戦場のイジン1体を破壊する。まず自分のイジンを選んでね。", own);
-            const p2 = await fxPickOne(k, "「バレット」の能力（相手のイジン）", "次に相手のイジンを選んでね。", foe);
+            const p1 = await fxPickOne(k, "「バレット」の能力（自分のイジン）", "自分の戦場のイジン1体と相手の戦場のイジン1体を破壊する。まず自分のイジンを選ぶ。", own);
+            const p2 = await fxPickOne(k, "「バレット」の能力（相手のイジン）", "次に相手のイジンを選ぶ。", foe);
             if (!p1 || !p2) return;
             log("「バレット」：「" + p1.inst.name + "」と「" + p2.inst.name + "」を破壊する！");
             await processDestruction([{ sideKey: k, kind: "ijin", uid: p1.inst.uid }, { sideKey: foeKeyOf(k), kind: "ijin", uid: p2.inst.uid }]);
@@ -2714,7 +2751,7 @@
           mahou: async function(k, inst, viaMeifu){
             const cands = ownIjinCands(k); if (!cands.length){ log("「チャンピオン」：自分のイジンがおらず、効果は発動しなかった。"); return; }
             if (!isHuman(k)) cands.forEach(function(c){ c.score = function(){ return effPower(k, c.inst); }; });
-            const pick = await fxPickOne(k, "「チャンピオン」の能力", "このターンの間「イジンにブロックされない」を得る、自分のイジン1体を選んでね。", cands);
+            const pick = await fxPickOne(k, "「チャンピオン」の能力", "このターンの間「イジンにブロックされない」を得る、自分のイジン1体を選ぶ。", cands);
             if (!pick) return;
             pick.inst.ubTemp = true;
             log("「チャンピオン」：「" + pick.inst.name + "」はこのターンの間「イジンにブロックされない」を得た。");
@@ -2729,7 +2766,7 @@
             G.battleUsed = false;
             log("「ファイナルアタック」！自分のイジンすべてを起こした。追加でバトルできるが、次のエンドフェイズ開始時に敗北する！");
             renderBattle();
-            if (isHuman(k)) await fxInfo("「ファイナルアタック」", "自分のイジンすべてを起こしたよ。このターン、もう一度バトルできる。ただし、このターンのエンドフェイズが始まると敗北するので、追加バトルで勝ち切ってね。", k);
+            if (isHuman(k)) await fxInfo("「ファイナルアタック」", "自分のイジンすべてを起こした。このターン、もう一度バトルできる。ただし、このターンのエンドフェイズが始まると敗北するので、追加バトルで勝ち切る。", k);
           } },
         "ロイヤリティ": { st: "ok", legacy: "meifu",
           cpuUse: function(k, h){ const G = S.G; return G[k].guardians.length > 0 || G[k].field.some(function(f){ return effTrait(k, f) === "剣術"; }); },
@@ -2747,13 +2784,13 @@
             } else act = sd.guardians.length ? "g" : (ken.length ? "d" : null);
             if (!act) return;
             if (act === "d"){
-              const pick = await fxDestroyPick(k, "「ロイヤリティ」の能力", "破壊する自分の「剣術」イジンを選んでね。", ken.map(function(f){ return { k: k, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: "パワー" + effPower(k, f), score: function(){ return -effPower(k, f); } }; }), {});
+              const pick = await fxDestroyPick(k, "「ロイヤリティ」の能力", "破壊する自分の「剣術」イジンを選ぶ。", ken.map(function(f){ return { k: k, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: "パワー" + effPower(k, f), score: function(){ return -effPower(k, f); } }; }), {});
               if (!pick) return;
             } else {
               let g = sd.guardians[0];
               if (isHuman(k) && sd.guardians.length > 1){
                 const opts = sd.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を山札の上に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: k, uid: x.uid } }; });
-                const pi = await fxChoose("「ロイヤリティ」の能力", "山札の上に戻すガーディアンを選んでね。", opts, k);
+                const pi = await fxChoose("「ロイヤリティ」の能力", "山札の上に戻すガーディアンを選ぶ。", opts, k);
                 g = sd.guardians[pi];
               }
               sd.guardians = sd.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -2770,10 +2807,10 @@
             const foe = foeKeyOf(k), G = S.G;
             const own = ownIjinCands(k);
             if (!own.length || !G[foe].guardians.length){ log("「デスペラード」：対象が揃わず、効果は発動しなかった。"); return; }
-            const p1 = await fxPickOne(k, "「デスペラード」の能力（自分のイジン）", "自分の戦場のイジン1体と、相手の戦場のガーディアン1体を破壊する。まず自分のイジンを選んでね。", own);
+            const p1 = await fxPickOne(k, "「デスペラード」の能力（自分のイジン）", "自分の戦場のイジン1体と、相手の戦場のガーディアン1体を破壊する。まず自分のイジンを選ぶ。", own);
             if (!p1) return;
             const gcands = G[foe].guardians.map(function(g, gi){ return { k: foe, kind: "guardian", inst: g, gi: gi, label: whoName(foe) + "のガーディアン" + (gi + 1), sub: "左から" + (gi + 1) + "番目", score: function(){ return 0; } }; });
-            const p2 = await fxPickOne(k, "「デスペラード」の能力（相手のガーディアン）", "破壊する相手のガーディアンを選んでね。", gcands);
+            const p2 = await fxPickOne(k, "「デスペラード」の能力（相手のガーディアン）", "破壊する相手のガーディアンを選ぶ。", gcands);
             if (!p2) return;
             log("「デスペラード」：「" + p1.inst.name + "」と相手のガーディアンを破壊する！");
             await processDestruction([{ sideKey: k, kind: "ijin", uid: p1.inst.uid }, { sideKey: foe, kind: "guardian", uid: p2.inst.uid }]);
@@ -2823,7 +2860,7 @@
               let idx = 0;
               if (isHuman(k) && sd.hand.length > 1){
                 const opts = sd.hand.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; });
-                idx = await fxChoose("「ソーラーフレア」の能力", "墓地に置く手札1枚を選んでね。", opts, k);
+                idx = await fxChoose("「ソーラーフレア」の能力", "墓地に置く手札1枚を選ぶ。", opts, k);
               }
               const dc = sd.hand.splice(idx, 1)[0];
               sd.grave.push({ uid: dc.uid, name: dc.name });
@@ -2869,8 +2906,8 @@
             const foeC = foeIjinCands(k).concat(foeHaikeiCands(k));
             G[foe].guardians.forEach(function(g, gi){ foeC.push({ k: foe, kind: "guardian", inst: g, gi: gi, label: whoName(foe) + "のガーディアン" + (gi + 1), sub: "左から" + (gi + 1) + "番目", score: function(){ return 1; } }); });
             if (!own.length || !foeC.length){ log("「ピースメーカー」：対象が揃わず、効果は発動しなかった。"); return; }
-            const p1 = await fxPickOne(k, "「ピースメーカー」の能力（自分のカード）", "自分の戦場のイジンかガーディアン1体と、相手の戦場のカード1つを破壊する。まず自分のカードを選んでね。", own);
-            const p2 = await fxPickOne(k, "「ピースメーカー」の能力（相手のカード）", "次に相手の戦場のカードを選んでね。", foeC);
+            const p1 = await fxPickOne(k, "「ピースメーカー」の能力（自分のカード）", "自分の戦場のイジンかガーディアン1体と、相手の戦場のカード1つを破壊する。まず自分のカードを選ぶ。", own);
+            const p2 = await fxPickOne(k, "「ピースメーカー」の能力（相手のカード）", "次に相手の戦場のカードを選ぶ。", foeC);
             if (!p1 || !p2) return;
             log("「ピースメーカー」：自分のカードと相手のカードを破壊する！");
             await processDestruction([{ sideKey: p1.k, kind: p1.kind, uid: p1.inst.uid }, { sideKey: p2.k, kind: p2.kind, uid: p2.inst.uid }]);
@@ -3007,7 +3044,7 @@
           if (!kind) continue;
           let use = false;
           if (isHuman(r.sideKey)){
-            const p = await fxChoose("「" + r.name + "」の遺業能力（四面楚歌）", legacyDesc(r.name, kind) + "（「四面楚歌」の効果で、山札から墓地に置かれても発動できるよ）", [{ label: "発動する" }, { label: "発動しない" }], r.sideKey);
+            const p = await fxChoose("「" + r.name + "」の遺業能力（四面楚歌）", legacyDesc(r.name, kind) + "（「四面楚歌」の効果で、山札から墓地に置かれても発動できる）", [{ label: "発動する" }, { label: "発動しない" }], r.sideKey);
             use = (p === 0);
           } else if (kind === "meifu") {
             use = cpuMeifuDecision(r.sideKey, { uid: r.uid, name: r.name });
@@ -3027,7 +3064,7 @@
         if (!cands.length || !isHuman(k)) return;
         const opts = cands.map(function(g){ return { label: "「" + g.name + "」を表向きで置く", sub: "マリョク Lv" + CARD[g.name].level }; });
         opts.push({ label: "置かない（手札から置く）", sub: "" });
-        const pi = await fxChoose("「地上の紫微垣」の能力", "ターンに1回、マリョク配置で墓地のマリョクも選べるよ（表向きで置く場合のみ）。墓地から置く？", opts, k);
+        const pi = await fxChoose("「地上の紫微垣」の能力", "ターンに1回、マリョク配置で墓地のマリョクも選べる（表向きで置く場合のみ）。墓地から置く？", opts, k);
         if (pi >= cands.length) return;
         const gm = cands[pi];
         sd.shihekiSeq = G.turnSeq;
@@ -3098,7 +3135,7 @@
             if (isHuman(k)){
               const opts = mcands.map(function(m){ return { label: "「" + m.name + "」を戦場に置く", sub: "ハイケイ Lv" + CARD[m.name].level }; });
               opts.push({ label: "発動しない", sub: "" });
-              const pi = await fxChoose("「尾形光琳」の能力", "魔力ゾーンの裏のカードのうち、表がレベル4以下のハイケイ1つを表向きで戦場に置けるよ。置いたら相手のイジン1体を山札の下に戻して、イジン召喚権+1する。", opts, k);
+              const pi = await fxChoose("「尾形光琳」の能力", "魔力ゾーンの裏のカードのうち、表がレベル4以下のハイケイ1つを表向きで戦場に置ける。置いたら相手のイジン1体を山札の下に戻して、イジン召喚権+1する。", opts, k);
               if (pi < mcands.length) mpick = mcands[pi];
             } else mpick = mcands[0];
             if (!mpick) return;
@@ -3108,7 +3145,7 @@
             log("「尾形光琳」の能力：魔力ゾーンの「" + mpick.name + "」を表向きで戦場に置いた！");
             renderBattle();
             await fireOnHaikeiPlace(k, h);
-            const fpick = await fxPickOne(k, "「尾形光琳」の能力", "山札の下に戻す相手のイジン1体を選んでね。", foeIjinCands(k));
+            const fpick = await fxPickOne(k, "「尾形光琳」の能力", "山札の下に戻す相手のイジン1体を選ぶ。", foeIjinCands(k));
             if (fpick){
               foe.field = foe.field.filter(function(f){ return f.uid !== fpick.inst.uid; });
               foe.deck.push({ uid: fpick.inst.uid, name: fpick.inst.name });
@@ -3173,7 +3210,7 @@
                 let picks = [];
                 if (isHuman(k)){
                   const n = Math.min(3, cands.length);
-                  const idxs = await fxMulti("「ソレイユ」の能力【赤魔導】", "相手の墓地のマリョクでないカードを" + n + "つまで山札の下に戻せるよ。", cands.map(function(g){ return { label: "「" + g.name + "」", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; }), n, k);
+                  const idxs = await fxMulti("「ソレイユ」の能力【赤魔導】", "相手の墓地のマリョクでないカードを" + n + "つまで山札の下に戻せる。", cands.map(function(g){ return { label: "「" + g.name + "」", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; }), n, k);
                   picks = idxs.map(function(i){ return cands[i]; });
                 } else picks = cands.slice(0, 3);
                 picks.forEach(function(g){ foe.grave = foe.grave.filter(function(x){ return x.uid !== g.uid; }); foe.deck.push({ uid: g.uid, name: g.name }); });
@@ -3284,7 +3321,7 @@
             if (n){
               let picks;
               if (isHuman(k)){
-                const idxs = await fxMulti("「リンボ」の能力", "墓地から手札に加えるカードを" + n + "枚選んでね。", cands.map(function(g){ return { label: "「" + g.name + "」", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; }), n, k);
+                const idxs = await fxMulti("「リンボ」の能力", "墓地から手札に加えるカードを" + n + "枚選ぶ。", cands.map(function(g){ return { label: "「" + g.name + "」", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; }), n, k);
                 picks = idxs.map(function(i){ return cands[i]; });
               } else picks = cands.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level; }).slice(0, n);
               picks.forEach(function(g){ sd.grave = sd.grave.filter(function(x){ return x.uid !== g.uid; }); sd.hand.push({ uid: g.uid, name: g.name }); });
@@ -3313,7 +3350,7 @@
             });
             if (cands.length){
               if (isHuman(k)) cands.push({ skip: true, label: "発動しない", sub: "" });
-              const pick = await fxPickOne(k, "「ラ・コロール」の能力", "魔力ゾーンに置かれたとき：戦場のレベル2以下のイジン1体を山札の下に戻せるよ。戻すと、このターン自分はバトルできない。", cands);
+              const pick = await fxPickOne(k, "「ラ・コロール」の能力", "魔力ゾーンに置かれたとき：戦場のレベル2以下のイジン1体を山札の下に戻せる。戻すと、このターン自分はバトルできない。", cands);
               if (pick && !pick.skip){
                 const owner = G[pick.k];
                 owner.field = owner.field.filter(function(f){ return f.uid !== pick.inst.uid; });
@@ -3367,7 +3404,7 @@
         if (!cands.length) return null;
         if (isHuman(k)){
           const opts = cands.map(function(n){ return { label: "「" + n + "」", sub: classOf(CARD[n]) + " Lv" + CARD[n].level};});
-          const pi = await fxChoose(title, "宣言するカード名を1つ選んでね（公開情報のカード名から選ぶ簡易方式）。", opts, k);
+          const pi = await fxChoose(title, "宣言するカード名を1つ選ぶ（公開情報のカード名から選ぶ簡易方式）。", opts, k);
           return cands[pi];
         }
         const foe = S.G[foeKeyOf(k)];
@@ -3392,7 +3429,7 @@
             ["P", "C"].forEach(function(k2){ S.G[k2].field.forEach(function(f){ if ((CARD[f.name].level || 0) >= 5) cands.push({ k: k2, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: whoName(k2) + "の戦場 ・ Lv" + CARD[f.name].level + " パワー" + effPower(k2, f), score: function(){ return k2 === k? -effPower(k2, f): effPower(k2, f);}});});});
             if (!cands.length) return;
             log("「沖田総司」の能力：自分の戦場にガーディアンがいないため、レベル5以上のイジン1体を破壊できる。");
-            await fxDestroyPick(k, "「沖田総司」の能力", "自分の戦場にガーディアンがいないので、戦場のレベル5以上のイジン1体を破壊できるよ。", cands, { optional: true});
+            await fxDestroyPick(k, "「沖田総司」の能力", "自分の戦場にガーディアンがいないので、戦場のレベル5以上のイジン1体を破壊できる。", cands, { optional: true});
           },
           onAttacker: async function(k, inst){
             const milled = millCards(foeKeyOf(k), 2);
@@ -3544,7 +3581,7 @@
             if (!cands.length) return;
             const list = cands.slice();
             if (isHuman(k)) list.push({ skip: true, label: "発動しない", sub: ""});
-            const pick = await fxPickOne(k, "「ディ・クローネ」の能力", "魔力ゾーンに置かれたとき：戦場のパワー1000以下のイジン1体を、その持ち主の山札の下に戻せるよ。戻すと、このターン自分はバトルできない。", list);
+            const pick = await fxPickOne(k, "「ディ・クローネ」の能力", "魔力ゾーンに置かれたとき：戦場のパワー1000以下のイジン1体を、その持ち主の山札の下に戻せる。戻すと、このターン自分はバトルできない。", list);
             if (!pick || pick.skip) return;
             const owner = S.G[pick.k];
             owner.field = owner.field.filter(function(f){ return f.uid!== pick.inst.uid;});
@@ -3570,7 +3607,7 @@
               for (let i = 0; i < 2 && pool.length; i++){
                 const opts = pool.map(function(g){ return { label: "「" + g.name + "」を手札に戻す", sub: "マホウ Lv" + CARD[g.name].level};});
                 opts.push({ label: i === 0? "発動しない": "ここまでにする", sub: ""});
-                const pi = await fxChoose("「大隈重信」の能力", "破壊されたとき、墓地のマホウ1つか2つを手札に戻して、これを破壊されていない状態にできるよ（あと" + (2 - i) + "つまで）。", opts, k);
+                const pi = await fxChoose("「大隈重信」の能力", "破壊されたとき、墓地のマホウ1つか2つを手札に戻して、これを破壊されていない状態にできる（あと" + (2 - i) + "つまで）。", opts, k);
                 if (pi >= pool.length) break;
                 picks.push(pool.splice(pi, 1)[0]);
               }
@@ -3760,7 +3797,7 @@
         let g = awake[0];
         if (isHuman(k) && awake.length > 1){
           const opts = awake.map(function(x){ return { label: "相手のガーディアン" + (foe.guardians.indexOf(x) + 1) + "を寝かせる", sub: "左から" + (foe.guardians.indexOf(x) + 1) + "番目", img: "back", hl: { side: foeK, uid: x.uid } }; });
-          const pi = await fxChoose("「孔子」の能力", "ガーディアンが自分の戦場に置かれた。相手のガーディアン1体を寝かせてね。", opts, k);
+          const pi = await fxChoose("「孔子」の能力", "ガーディアンが自分の戦場に置かれた。相手のガーディアン1体を寝かせる。", opts, k);
           g = awake[pi];
         }
         g.sleeping = true;
@@ -3778,7 +3815,7 @@
           if (!sleepingN) continue;
           if (!["P","C"].some(function(k2){ return G[k2].field.length; })) continue;
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「アンナ・パブロワ」の能力", "戦場のガーディアンが寝た。寝ているガーディアン1体につき、戦場のイジン1体を手札に戻せるよ（寝ているガーディアン" + sleepingN + "体）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+          if (isHuman(k)){ const p = await fxChoose("「アンナ・パブロワ」の能力", "戦場のガーディアンが寝た。寝ているガーディアン1体につき、戦場のイジン1体を手札に戻せる（寝ているガーディアン" + sleepingN + "体）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
           else go = G[foeKeyOf(k)].field.length > 0;
           if (!go) continue;
           G.annaBusy = true;
@@ -3786,7 +3823,7 @@
             const cands = [];
             ["P","C"].forEach(function(k2){ G[k2].field.forEach(function(f){ cands.push({ k: k2, kind: "ijin", inst: f, label: "「" + f.name + "」を手札に戻す", sub: whoName(k2) + "の戦場 ・ パワー" + effPower(k2, f), score: function(){ return (k2 === k ? -1 : 2) * effPower(k2, f); } }); }); });
             if (!cands.length) break;
-            const pick = await fxPickOne(k, "「アンナ・パブロワ」の能力", "手札に戻すイジンを選んでね（" + (i + 1) + "/" + sleepingN + "体目）。", cands);
+            const pick = await fxPickOne(k, "「アンナ・パブロワ」の能力", "手札に戻すイジンを選ぶ（" + (i + 1) + "/" + sleepingN + "体目）。", cands);
             if (!pick) break;
             const owner = G[pick.k];
             owner.field = owner.field.filter(function(f){ return f.uid !== pick.inst.uid; });
@@ -3808,7 +3845,7 @@
           const opts = [];
           ijins.forEach(function(f){ opts.push({ label: "イジン「" + f.name + "」を寝かせる", sub: "パワー" + effPower(k, f), ref: { t: "i", inst: f } }); });
           guards.forEach(function(g){ opts.push({ label: "ガーディアン" + (sd.guardians.indexOf(g) + 1) + "を寝かせる", sub: "裏向きのまま寝かせる", img: "back", hl: { side: k, uid: g.uid }, ref: { t: "g", inst: g } }); });
-          const pi = await fxChoose(title, "自分の戦場のイジン1体かガーディアン1体を寝かせてね（必須）。", opts, k);
+          const pi = await fxChoose(title, "自分の戦場のイジン1体かガーディアン1体を寝かせる（必須）。", opts, k);
           target = opts[pi].ref;
         } else {
           const weak = ijins.slice().sort(function(a, b){ return effPower(k, a) - effPower(k, b); })[0];
@@ -3841,7 +3878,7 @@
         let g = D.guardians[0];
         if (isHuman(defKey) && D.guardians.length > 1){
           const opts = D.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を山札の上に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: defKey, uid: x.uid } }; });
-          const pi = await fxChoose("「遁甲式水鏡」の能力", "山札の上に戻す自分のガーディアンを選んでね。", opts, defKey);
+          const pi = await fxChoose("「遁甲式水鏡」の能力", "山札の上に戻す自分のガーディアンを選ぶ。", opts, defKey);
           g = D.guardians[pi];
         }
         D.guardians = D.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -3894,14 +3931,14 @@
           ["P","C"].forEach(function(k3){ G[k3].field.forEach(function(f){ if (f.equipUid) equipped.push({ k: k3, f: f }); }); });
           if (!equipped.length) continue;
           let go = false;
-          if (isHuman(k2)){ const p = await fxChoose("「エドモンド・カートライト」の能力", "イジンが戦場に置かれた。装備されているカード1つを所有者の手札に戻して、1ドローできるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k2); go = (p === 0); }
+          if (isHuman(k2)){ const p = await fxChoose("「エドモンド・カートライト」の能力", "イジンが戦場に置かれた。装備されているカード1つを所有者の手札に戻して、1ドローできる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k2); go = (p === 0); }
           else go = equipped.some(function(e){ return e.k !== k2; });
           if (!go) continue;
           const cands = equipped.map(function(e){
             const eq = G[e.k].maryoku.find(function(m){ return m.uid === e.f.equipUid; });
             return { k: e.k, kind: "ijin", inst: e.f, label: "「" + (eq ? eq.name : "?") + "」（「" + e.f.name + "」の装備）", sub: whoName(e.k) + "の戦場", score: function(){ return e.k === k2 ? 0 : 5; } };
           });
-          const pick = await fxPickOne(k2, "「エドモンド・カートライト」の能力", "手札に戻す装備カードを選んでね。", cands);
+          const pick = await fxPickOne(k2, "「エドモンド・カートライト」の能力", "手札に戻す装備カードを選ぶ。", cands);
           if (pick){
             const owner = G[pick.k];
             const eqM = owner.maryoku.find(function(m){ return m.uid === pick.inst.equipUid; });
@@ -3931,13 +3968,13 @@
           const costs = owner.maryoku.filter(function(m){ return m.uid !== eq.uid; });
           if (!costs.length) continue;
           let use = false;
-          if (isHuman(d.sideKey)){ const p = await fxChoose("「羅針盤」の能力", "装備している「" + d.inst.name + "」が破壊される。自分の魔力ゾーンのマリョク1つを墓地に置いて、破壊されていない状態にできるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], d.sideKey); use = (p === 0); }
+          if (isHuman(d.sideKey)){ const p = await fxChoose("「羅針盤」の能力", "装備している「" + d.inst.name + "」が破壊される。自分の魔力ゾーンのマリョク1つを墓地に置いて、破壊されていない状態にできる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], d.sideKey); use = (p === 0); }
           else use = true;
           if (!use) continue;
           let cost = costs[0];
           if (isHuman(d.sideKey) && costs.length > 1){
             const opts = costs.map(function(m){ return { label: "「" + m.name + "」を墓地に置く", sub: m.faceUp ? "表向きのマリョク" : "裏向きのカード", img: m.faceUp ? m.name : "back", hl: { side: d.sideKey, uid: m.uid } }; });
-            const pi = await fxChoose("「羅針盤」の能力", "墓地に置くマリョクを選んでね。", opts, d.sideKey);
+            const pi = await fxChoose("「羅針盤」の能力", "墓地に置くマリョクを選ぶ。", opts, d.sideKey);
             cost = costs[pi];
           }
           owner.maryoku = owner.maryoku.filter(function(m){ return m.uid !== cost.uid; });
@@ -4004,7 +4041,7 @@
           let m = fu[0];
           if (isHuman(k2) && fu.length > 1){
             const opts = fu.map(function(x){ return { label: "「" + x.name + "」を裏にする", sub: "Lv" + CARD[x.name].level }; });
-            const pi = await fxChoose("「ジャン・カルヴァン」の能力", "裏にするマリョクを選んでね。", opts, k2);
+            const pi = await fxChoose("「ジャン・カルヴァン」の能力", "裏にするマリョクを選ぶ。", opts, k2);
             m = fu[pi];
           }
           m.faceUp = false; unequipBlade(k2, m.uid);
@@ -4021,7 +4058,7 @@
             if (isHuman(k)){
               const opts = cands.map(function(h){ return { label: "「" + h.name + "」を墓地に置いて1ドロー", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; });
               opts.push({ label: "発動しない", sub: "" });
-              const pi = await fxChoose("「モナ・リザ」の能力", "メインフェイズ開始時：手札の「美術」カード1つを墓地に置いて、1ドローできるよ。", opts, k);
+              const pi = await fxChoose("「モナ・リザ」の能力", "メインフェイズ開始時：手札の「美術」カード1つを墓地に置いて、1ドローできる。", opts, k);
               if (pi < cands.length) pick = cands[pi];
             } else pick = cands[0];
             if (pick){
@@ -4036,24 +4073,24 @@
         // 革命の広場：自分のメインフェイズ開始時、自分のイジン1体を破壊できる
         if (sd.haikei.some(function(h){ return h.name === "革命の広場" && !h.faceDown; }) && sd.field.length){
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「革命の広場」の能力", "メインフェイズ開始時：自分の戦場のイジン1体を破壊できるよ（破壊されるたび1ドローする効果もある）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+          if (isHuman(k)){ const p = await fxChoose("「革命の広場」の能力", "メインフェイズ開始時：自分の戦場のイジン1体を破壊できる（破壊されるたび1ドローする効果もある）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
           else go = sd.field.some(function(f){ return effPower(k, f) <= 1000; });
           if (go){
-            const pick = await fxPickOne(k, "「革命の広場」の能力", "破壊する自分のイジンを選んでね。", ownIjinCands(k));
+            const pick = await fxPickOne(k, "「革命の広場」の能力", "破壊する自分のイジンを選ぶ。", ownIjinCands(k));
             if (pick){ await processDestruction([{ sideKey: k, kind: "ijin", uid: pick.inst.uid }]); renderBattle(); }
           }
         }
         // 落日の王宮：自分のメインフェイズ開始時、山札の上1枚を墓地に置いて、墓地のカード1つを手札に戻せる
         if (sd.haikei.some(function(h){ return h.name === "落日の王宮" && !h.faceDown; }) && sd.deck.length && sd.grave.length){
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「落日の王宮」の能力", "メインフェイズ開始時：自分の山札の上から1枚を墓地に置いて、自分の墓地のカード1つを手札に戻せるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
+          if (isHuman(k)){ const p = await fxChoose("「落日の王宮」の能力", "メインフェイズ開始時：自分の山札の上から1枚を墓地に置いて、自分の墓地のカード1つを手札に戻せる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], k); go = (p === 0); }
           else go = true;
           if (go){
             millCards(k, 1);
             let pick = sd.grave[0];
             if (isHuman(k)){
               const opts = sd.grave.map(function(g){ return { label: "「" + g.name + "」を手札に戻す", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; });
-              const pi = await fxChoose("「落日の王宮」の能力", "手札に戻す、墓地のカードを選んでね。", opts, k);
+              const pi = await fxChoose("「落日の王宮」の能力", "手札に戻す、墓地のカードを選ぶ。", opts, k);
               pick = sd.grave[pi];
             } else pick = sd.grave.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level; })[0];
             if (pick){
@@ -4077,7 +4114,7 @@
             if (isHuman(k)){
               const opts = cands.map(function(g){ return { label: "「" + g.name + "」を戦場に置く", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; });
               opts.push({ label: "発動しない", sub: "" });
-              const pi = await fxChoose("「ルイ14世」の能力", "エンドフェイズ：自分の墓地のレベル5以下のイジンか、レベル6以下のハイケイ1つを戦場に置けるよ。", opts, k);
+              const pi = await fxChoose("「ルイ14世」の能力", "エンドフェイズ：自分の墓地のレベル5以下のイジンか、レベル6以下のハイケイ1つを戦場に置ける。", opts, k);
               if (pi < cands.length) pick = cands[pi];
             } else pick = cands.filter(function(g){ return CARD[g.name].type === "I"; }).sort(function(a, b){ return CARD[b.name].power - CARD[a.name].power; })[0] || cands[0];
             if (pick){
@@ -4092,7 +4129,7 @@
             if (isHuman(k)){
               const opts = sd.grave.map(function(g){ return { label: "「" + g.name + "」を裏向きで戦場に置く", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level }; });
               opts.push({ label: "発動しない", sub: "" });
-              const pi = await fxChoose("「ルイ14世」の能力", "エンドフェイズ：自分の墓地のカード1つを裏向きで戦場に置けるよ。", opts, k);
+              const pi = await fxChoose("「ルイ14世」の能力", "エンドフェイズ：自分の墓地のカード1つを裏向きで戦場に置ける。", opts, k);
               if (pi < sd.grave.length) pick = sd.grave[pi];
             } else pick = sd.grave.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level; })[0];
             if (pick){
@@ -4114,7 +4151,7 @@
               let m = fu[0];
               if (isHuman(k) && fu.length > 1){
                 const opts = fu.map(function(x){ return { label: "「" + x.name + "」を裏にする", sub: "Lv" + CARD[x.name].level }; });
-                const pi = await fxChoose("「阿頼耶識」の能力", "裏にするマリョクを選んでね。", opts, k);
+                const pi = await fxChoose("「阿頼耶識」の能力", "裏にするマリョクを選ぶ。", opts, k);
                 m = fu[pi];
               }
               m.faceUp = false; unequipBlade(k, m.uid);
@@ -4187,12 +4224,12 @@ if (!go) return;
 let mine = ownUp[0];
 if (isHuman(k) && ownUp.length > 1){
 const opts = ownUp.map(function(m){ return { label: "「" + m.name + "」を裏にする", sub: "Lv" + CARD[m.name].level};});
-const pi = await fxChoose("「始皇帝」の能力", "裏にする自分のマリョクを選んでね。", opts, k);
+const pi = await fxChoose("「始皇帝」の能力", "裏にする自分のマリョクを選ぶ。", opts, k);
 mine = ownUp[pi];
 }
 mine.faceUp = false; unequipBlade(k, mine.uid);
 const cands = foeUp.map(function(m){ return { k: foeK, kind: "maryoku", inst: m, label: "「" + m.name + "」を裏にする", sub: whoName(foeK) + "の魔力ゾーン ・ Lv" + CARD[m.name].level, score: function(){ return CARD[m.name].level;}};});
-const pick = await fxPickOne(k, "「始皇帝」の能力", "裏にする相手のマリョクを選んでね。", cands);
+const pick = await fxPickOne(k, "「始皇帝」の能力", "裏にする相手のマリョクを選ぶ。", cands);
 if (pick){ pick.inst.faceUp = false; unequipBlade(foeK, pick.inst.uid); log("「始皇帝」の能力：お互いのマリョク1つずつを裏にした。");}
 renderBattle();
 }},
@@ -4205,7 +4242,7 @@ if (!cands.length) return;
 let pick = null;
 if (isHuman(k)){
 const opts = cands.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};});
-const pi = await fxChoose("「メアリー1世」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。マリョクでないカード1つを墓地に置いてね。", opts, k);
+const pi = await fxChoose("「メアリー1世」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。マリョクでないカード1つを墓地に置く。", opts, k);
 pick = cands[pi];
 } else pick = cands.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level;})[0];
 if (!pick) return;
@@ -4273,7 +4310,7 @@ let pick = null;
 if (isHuman(k)){
 const opts = cands.map(function(g){ return { label: "「" + g.name + "」を戦場に置く", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level};});
 opts.push({ label: "発動しない", sub: ""});
-const pi = await fxChoose("「レオナルド・ダ・ヴィンチ」の能力", "自分の墓地のレベル6以下のイジンか、レベル5以下のハイケイ1つを戦場に置けるよ。", opts, k);
+const pi = await fxChoose("「レオナルド・ダ・ヴィンチ」の能力", "自分の墓地のレベル6以下のイジンか、レベル5以下のハイケイ1つを戦場に置ける。", opts, k);
 if (pi < cands.length) pick = cands[pi];
 } else pick = cands.filter(function(g){ return CARD[g.name].type === "I";}).sort(function(a, b){ return CARD[b.name].power - CARD[a.name].power;})[0] || cands[0];
 if (!pick) return;
@@ -4324,7 +4361,7 @@ let go = false;
 if (isHuman(k)){ const p = await fxChoose("「楊貴妃」の能力", "自分の戦場のイジン1体を破壊して発動できる。3ドローする。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = sd.field.some(function(f){ return f.uid!== inst.uid && effPower(k, f) <= 1000;});
 if (!go) return;
-const pick = await fxDestroyPick(k, "「楊貴妃」の能力", "破壊する自分のイジンを選んでね。", ownIjinCands(k), {});
+const pick = await fxDestroyPick(k, "「楊貴妃」の能力", "破壊する自分のイジンを選ぶ。", ownIjinCands(k), {});
 if (pick){ await drawCards(k, 3); log("「楊貴妃」の能力：" + whoName(k) + "は3ドローした。"); renderBattle();}
 }},
 "アンナ・パブロワ": { st: "part", note: "「破壊されない」は同時破壊の順序までは再現しない簡易実装", legacy: "draw"}, // 破壊回避は processDestruction、ガーディアンが寝たときは blueGuardianSleptWatcher
@@ -4347,7 +4384,7 @@ let pick = null;
 if (isHuman(k)){
 const opts = sd.hand.map(function(h){ return { label: "「" + h.name + "」を裏向きで戦場に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};});
 opts.push({ label: "置かない", sub: ""});
-const pi = await fxChoose("「ポンパドゥール夫人」の能力", "「思想」カードが自分の戦場か墓地にある。手札のカード1つを裏向きで戦場に置けるよ。", opts, k);
+const pi = await fxChoose("「ポンパドゥール夫人」の能力", "「思想」カードが自分の戦場か墓地にある。手札のカード1つを裏向きで戦場に置ける。", opts, k);
 if (pi < sd.hand.length) pick = sd.hand[pi];
 } else pick = sd.hand.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level;})[0];
 if (!pick) return;
@@ -4379,7 +4416,7 @@ if (!downs.length) return;
 let m = downs[0];
 if (isHuman(k) && downs.length > 1){
 const opts = downs.map(function(x){ return { label: "裏のカードを裏のまま戦場に置く", sub: "魔力ゾーン左から" + (sd.maryoku.indexOf(x) + 1) + "番目", img: "back", hl: { side: k, uid: x.uid}};});
-const pi = await fxChoose("「ジャック・カルティエ」の能力", "戦場に置く、魔力ゾーンの裏のカードを選んでね。", opts, k);
+const pi = await fxChoose("「ジャック・カルティエ」の能力", "戦場に置く、魔力ゾーンの裏のカードを選ぶ。", opts, k);
 m = downs[pi];
 }
 sd.maryoku = sd.maryoku.filter(function(x){ return x.uid!== m.uid;});
@@ -4391,7 +4428,7 @@ renderBattle();
 onAttacker: async function(k, inst){
 const cands = foeIjinCands(k, function(f){ return!f.sleeping;});
 if (!cands.length) return;
-const pick = await fxPickOne(k, "「フアン・セバスティアン・エルカーノ」の能力", "寝かせる相手のイジン1体を選んでね。", cands);
+const pick = await fxPickOne(k, "「フアン・セバスティアン・エルカーノ」の能力", "寝かせる相手のイジン1体を選ぶ。", cands);
 if (pick){ pick.inst.sleeping = true; log("「エルカーノ」の能力：「" + pick.inst.name + "」を寝かせた。"); renderBattle();}
 }},
 "片倉景綱": { st: "ok", legacy: "draw"}, // 見守りは blueAttackerWatchers
@@ -4409,7 +4446,7 @@ let pick = null;
 if (isHuman(k)){
 const opts = cands.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: "マホウ Lv" + CARD[h.name].level};});
 if (n > 0) opts.push({ label: "ここまでにする", sub: ""});
-const pi = await fxChoose("「愛姫」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。マホウを2つまで墓地に置けるよ（あと" + (2 - n) + "つ）。", opts, k);
+const pi = await fxChoose("「愛姫」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。マホウを2つまで墓地に置ける（あと" + (2 - n) + "つ）。", opts, k);
 if (pi >= cands.length) break;
 pick = cands[pi];
 } else pick = cands.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level;})[0];
@@ -4439,7 +4476,7 @@ renderBattle();
 onHaikeiPlace: async function(k, h){
 const sd = S.G[k];
 let go = false;
-if (isHuman(k)){ const p = await fxChoose("「落日の王宮」の能力", "戦場に置かれたとき：自分の山札の上から3枚を墓地に置いて、自分の墓地のカード1つを山札の上に戻せるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「落日の王宮」の能力", "戦場に置かれたとき：自分の山札の上から3枚を墓地に置いて、自分の墓地のカード1つを山札の上に戻せる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = sd.deck.length >= 4;
 if (!go) return;
 const milled = millCards(k, 3);
@@ -4448,7 +4485,7 @@ if (!sd.grave.length) return;
 let pick = sd.grave[0];
 if (isHuman(k)){
 const opts = sd.grave.map(function(g){ return { label: "「" + g.name + "」を山札の上に戻す", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level};});
-const pi = await fxChoose("「落日の王宮」の能力", "山札の上に戻す、墓地のカードを選んでね。", opts, k);
+const pi = await fxChoose("「落日の王宮」の能力", "山札の上に戻す、墓地のカードを選ぶ。", opts, k);
 pick = sd.grave[pi];
 } else pick = sd.grave.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level;})[0];
 sd.grave = sd.grave.filter(function(g){ return g.uid!== pick.uid;});
@@ -4465,7 +4502,7 @@ cpuUse: function(k, h){ const G = S.G; return G[foeKeyOf(k)].field.length > 0;},
 mahou: async function(k, inst, viaMeifu){
 const cands = foeIjinCands(k).concat(ownIjinCands(k).map(function(c){ c.score = function(){ return -effPower(k, c.inst) - 10000;}; return c;}));
 if (!cands.length){ log("「ストーム」：対象のイジンがおらず、効果は発動しなかった。"); return;}
-const pick = await fxPickOne(k, "「ストーム」の能力", "手札に戻す、戦場のイジン1体を選んでね。", cands);
+const pick = await fxPickOne(k, "「ストーム」の能力", "手札に戻す、戦場のイジン1体を選ぶ。", cands);
 if (!pick) return;
 const owner = S.G[pick.k];
 owner.field = owner.field.filter(function(f){ return f.uid!== pick.inst.uid;});
@@ -4482,14 +4519,14 @@ if (!cands.length){ log("「リバイバル」：対象のカードが墓地に�
 let pick = cands[0];
 if (isHuman(k)){
 const opts = cands.map(function(g){ return { label: "「" + g.name + "」", sub: classOf(CARD[g.name]) + " Lv" + CARD[g.name].level};});
-const pi = await fxChoose("「リバイバル」の能力", "自分の墓地のレベル6以下のイジンか、レベル5以下のハイケイ1つを選んでね。", opts, k);
+const pi = await fxChoose("「リバイバル」の能力", "自分の墓地のレベル6以下のイジンか、レベル5以下のハイケイ1つを選ぶ。", opts, k);
 pick = cands[pi];
 } else pick = cands.filter(function(g){ return CARD[g.name].type === "I";}).sort(function(a, b){ return CARD[b.name].power - CARD[a.name].power;})[0] || cands[0];
 sd.grave = sd.grave.filter(function(g){ return g.uid!== pick.uid;});
 const hasArt = sd.field.some(function(f){ return effTrait(k, f) === "美術";});
 let place = false;
 if (hasArt){
-if (isHuman(k)){ const p = await fxChoose("「リバイバル」の能力", "自分の戦場に「美術」イジンがいるので、手札に戻す代わりに戦場に置くこともできるよ。どうする？", [{ label: "戦場に置く"}, { label: "手札に戻す"}], k); place = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「リバイバル」の能力", "自分の戦場に「美術」イジンがいるので、手札に戻す代わりに戦場に置くこともできる。どうする？", [{ label: "戦場に置く"}, { label: "手札に戻す"}], k); place = (p === 0);}
 else place = CARD[pick.name].type === "I";
 }
 if (place){ await bluePlaceFromGrave(k, pick); log("「リバイバル」：「" + pick.name + "」を戦場に置いた。");}
@@ -4522,7 +4559,7 @@ if (!others.length){ log("「フール」：墓地のマホウのレベル合計
 let pick = others[0];
 if (isHuman(k)){
 const opts = others.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};});
-const pi = await fxChoose("「フール」の能力", "墓地のマホウのレベル合計が1以上なので、手札の他のカード1つを墓地に置いてね（必須）。", opts, k);
+const pi = await fxChoose("「フール」の能力", "墓地のマホウのレベル合計が1以上なので、手札の他のカード1つを墓地に置く（必須）。", opts, k);
 pick = others[pi];
 }
 sd.hand = sd.hand.filter(function(h){ return h.uid!== pick.uid;});
@@ -4543,7 +4580,7 @@ if (!cands.length){ log("「ドロレス」：相手の手札にレベル3以上
 let pick = cands[0];
 if (isHuman(k)){
 const opts = cands.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};});
-const pi = await fxChoose("「ドロレス」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。レベル3以上のカード1つを墓地に置いてね。", opts, k);
+const pi = await fxChoose("「ドロレス」の能力", "相手の手札を見た（" + foe.hand.map(function(h){ return "「" + h.name + "」";}).join("、") + "）。レベル3以上のカード1つを墓地に置く。", opts, k);
 pick = cands[pi];
 } else pick = cands.slice().sort(function(a, b){ return CARD[b.name].level - CARD[a.name].level;})[0];
 foe.hand = foe.hand.filter(function(h){ return h.uid!== pick.uid;});
@@ -4558,7 +4595,7 @@ const foeK = foeKeyOf(k), foe = S.G[foeK];
 const ups = foe.maryoku.filter(function(m){ return m.faceUp;});
 if (!ups.length){ log("「ワールド」：相手の魔力ゾーンに表向きのマリョクがなく、効果は発動しなかった。"); return;}
 const cands = ups.map(function(m){ return { k: foeK, kind: "maryoku", inst: m, label: "「" + m.name + "」を裏にする", sub: whoName(foeK) + "の魔力ゾーン ・ Lv" + CARD[m.name].level, score: function(){ return CARD[m.name].level;}};});
-const pick = await fxPickOne(k, "「ワールド」の能力", "裏にする相手のマリョクを選んでね。", cands);
+const pick = await fxPickOne(k, "「ワールド」の能力", "裏にする相手のマリョクを選ぶ。", cands);
 if (pick){ pick.inst.faceUp = false; unequipBlade(foeK, pick.inst.uid); log("「ワールド」：相手のマリョク「" + pick.inst.name + "」を裏にした。");}
 renderBattle();
 }},
@@ -4570,7 +4607,7 @@ const cands = [];
 G[foeK].field.forEach(function(f){ cands.push({ k: foeK, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: whoName(foeK) + "の戦場 ・ パワー" + effPower(foeK, f) + (f.sleeping? " ・ 寝ている": ""), score: function(){ return effPower(foeK, f) + (f.sleeping? 500: 0);}});});
 G[k].field.forEach(function(f){ cands.push({ k: k, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: whoName(k) + "の戦場 ・ パワー" + effPower(k, f) + (f.sleeping? " ・ 寝ている": ""), score: function(){ return -effPower(k, f) - 10000;}});});
 if (!cands.length){ log("「ハリケーン」：対象のイジンがおらず、効果は発動しなかった。"); return;}
-const pick = await fxPickOne(k, "「ハリケーン」の能力", "対象のイジン1体を選んでね。寝ているイジンは裏にして山札の上に戻り、そうでないイジンは手札に戻る。", cands);
+const pick = await fxPickOne(k, "「ハリケーン」の能力", "対象のイジン1体を選ぶ。寝ているイジンは裏にして山札の上に戻り、そうでないイジンは手札に戻る。", cands);
 if (!pick) return;
 const owner = G[pick.k];
 owner.field = owner.field.filter(function(f){ return f.uid!== pick.inst.uid;});
@@ -4592,7 +4629,7 @@ if (!cands.length){ log("「リザレクション」：対象のイジンが墓�
 let pick = cands[0];
 if (isHuman(k)){
 const opts = cands.map(function(g){ return { label: "「" + g.name + "」を戦場に置く", sub: "Lv" + CARD[g.name].level + " パワー" + CARD[g.name].power};});
-const pi = await fxChoose("「リザレクション」の能力", "自分の墓地のレベル7以下のイジン1体を戦場に置いてね。", opts, k);
+const pi = await fxChoose("「リザレクション」の能力", "自分の墓地のレベル7以下のイジン1体を戦場に置く。", opts, k);
 pick = cands[pi];
 } else pick = cands.slice().sort(function(a, b){ return CARD[b.name].power - CARD[a.name].power;})[0];
 sd.grave = sd.grave.filter(function(g){ return g.uid!== pick.uid;});
@@ -4668,10 +4705,10 @@ G[k2].guardians.forEach(function(g, gi){ if (g.sleeping) targets.push({ k: k2, k
 });
 if (!targets.length) continue;
 let go = false;
-if (isHuman(k)){ const p = await fxChoose("「クララ・ヨゼフィーネ・シューマン」の能力", "「音楽」イジンが戦場に置かれた。「クララ・シューマン」を寝かせて、寝ているイジン1体か寝ているガーディアン1体を墓地に置けるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「クララ・ヨゼフィーネ・シューマン」の能力", "「音楽」イジンが戦場に置かれた。「クララ・シューマン」を寝かせて、寝ているイジン1体か寝ているガーディアン1体を墓地に置ける。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = targets.some(function(t){ return t.k!== k && t.kind === "ijin" && effPower(t.k, t.inst) >= 3000;});
 if (!go) continue;
-const pick = await fxPickOne(k, "「クララ・ヨゼフィーネ・シューマン」の能力", "墓地に置く、寝ているイジンかガーディアンを選んでね。", targets);
+const pick = await fxPickOne(k, "「クララ・ヨゼフィーネ・シューマン」の能力", "墓地に置く、寝ているイジンかガーディアンを選ぶ。", targets);
 if (!pick) continue;
 clara.sleeping = true;
 if (pick.kind === "ijin"){
@@ -4698,7 +4735,7 @@ const ownerHas = G[sideKey].haikei.some(function(x){ return x.uid === h.uid;});
 // 吉田兼好：このターン2つ目のハイケイを裏にして、持ち主の魔力ゾーンに置ける
 if (isSecond && has("吉田兼好") && ownerHas){
 let go = false;
-if (isHuman(k)){ const p = await fxChoose("「吉田兼好」の能力", "このターン2つ目のハイケイ「" + h.name + "」を、裏にして持ち主の魔力ゾーンに置けるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「吉田兼好」の能力", "このターン2つ目のハイケイ「" + h.name + "」を、裏にして持ち主の魔力ゾーンに置ける。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = sideKey!== k || CARD[h.name].level <= 2;
 if (go){
 greenHaikeiToMaryoku(sideKey, h);
@@ -4708,7 +4745,7 @@ renderBattle();
 }
 // 紫式部：相手の戦場のイジン1体を裏にして、持ち主の魔力ゾーンに置く（必須）
 if (has("紫式部") && foe.field.length){
-const pick = await fxPickOne(k, "「紫式部」の能力", "ハイケイが戦場に置かれた。相手のイジン1体を、裏にして持ち主の魔力ゾーンに置いてね。", foeIjinCands(k));
+const pick = await fxPickOne(k, "「紫式部」の能力", "ハイケイが戦場に置かれた。相手のイジン1体を、裏にして持ち主の魔力ゾーンに置く。", foeIjinCands(k));
 if (pick){
 greenFlipToMaryoku(foeK, pick.inst);
 log("「紫式部」の能力：「" + pick.inst.name + "」を裏にして、持ち主の魔力ゾーンに置いた。");
@@ -4718,7 +4755,7 @@ renderBattle();
 // 鴨長明（ターン1回）：そのハイケイ1つを裏にしてガーディアンにする
 if (has("鴨長明") && sd.kamoSeq!== G.turnSeq && G[sideKey].haikei.some(function(x){ return x.uid === h.uid; })){
 let go = false;
-if (isHuman(k)){ const p = await fxChoose("「鴨長明」の能力", "ハイケイ「" + h.name + "」を、裏にして持ち主のガーディアンにできるよ（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「鴨長明」の能力", "ハイケイ「" + h.name + "」を、裏にして持ち主のガーディアンにできる（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = sideKey!== k;
 if (go){
 sd.kamoSeq = G.turnSeq;
@@ -4737,9 +4774,9 @@ const cs = [];
 ["P","C"].forEach(function(k2){ G[k2].maryoku.forEach(function(m){ cs.push({ k: k2, kind: "maryoku", inst: m, label: m.faceUp? "「" + m.name + "」を手札に戻す": "裏のカードを手札に戻す", sub: whoName(k2) + "の魔力ゾーン" + (m.faceUp? " ・ Lv" + CARD[m.name].level: ""), score: function(){ return (k2 === k? -1: 1) * (m.faceUp? CARD[m.name].level: 1);}});});});
 if (cs.length){
 let go = true;
-if (isHuman(k)){ const p = await fxChoose("「清少納言」の能力", "ハイケイが戦場に置かれた。魔力ゾーンのカード1つを所有者の手札に戻せるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「清少納言」の能力", "ハイケイが戦場に置かれた。魔力ゾーンのカード1つを所有者の手札に戻せる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 if (go){
-const pick = await fxPickOne(k, "「清少納言」の能力", "手札に戻す魔力ゾーンのカードを選んでね。", cs);
+const pick = await fxPickOne(k, "「清少納言」の能力", "手札に戻す魔力ゾーンのカードを選ぶ。", cs);
 if (pick){
 const owner = G[pick.k];
 owner.maryoku = owner.maryoku.filter(function(m){ return m.uid!== pick.inst.uid;});
@@ -4771,7 +4808,7 @@ renderBattle();
 // 与謝蕪村（ターン1回）：自分の山札の上から2つを裏のまま魔力ゾーンに置く
 if (has("与謝蕪村") && sd.bushoSeq!== G.turnSeq && sd.deck.length){
 let go = true;
-if (isHuman(k)){ const p = await fxChoose("「与謝蕪村」の能力", "ハイケイが置かれた。自分の山札の上から2つを、裏のまま魔力ゾーンに置けるよ（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「与謝蕪村」の能力", "ハイケイが置かれた。自分の山札の上から2つを、裏のまま魔力ゾーンに置ける（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 if (go){
 sd.bushoSeq = G.turnSeq;
 const n = Math.min(2, sd.deck.length);
@@ -4783,7 +4820,7 @@ renderBattle();
 // 司馬遷（ターン1回）：1ドローして、イジン召喚権+1して、マリョク配置権+1する
 if (has("司馬遷") && sd.shibaSeq!== G.turnSeq){
 let go = true;
-if (isHuman(k)){ const p = await fxChoose("「司馬遷」の能力", "ハイケイが置かれた。1ドローして、イジン召喚権+1して、マリョク配置権+1できるよ（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「司馬遷」の能力", "ハイケイが置かれた。1ドローして、イジン召喚権+1して、マリョク配置権+1できる（ターンに1回）。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 if (go){
 sd.shibaSeq = G.turnSeq;
 await drawCards(k, 1);
@@ -4811,7 +4848,7 @@ if (sd.field.some(function(f){ return f.name === "角倉了以" &&!f.faceDown;})
 let g = foe.guardians[0];
 if (isHuman(k) && foe.guardians.length > 1){
 const opts = foe.guardians.map(function(x, i){ return { label: "相手のガーディアン" + (i + 1) + "を魔力ゾーンに置く", sub: "左から" + (i + 1) + "番目・裏のまま置く", img: "back", hl: { side: foeK, uid: x.uid}};});
-const pi = await fxChoose("「角倉了以」の能力", "「航海」が発動した。相手のガーディアン1体を、裏のまま相手の魔力ゾーンに置いてね。", opts, k);
+const pi = await fxChoose("「角倉了以」の能力", "「航海」が発動した。相手のガーディアン1体を、裏のまま相手の魔力ゾーンに置く。", opts, k);
 g = foe.guardians[pi];
 }
 foe.guardians = foe.guardians.filter(function(x){ return x.uid!== g.uid;});
@@ -4851,7 +4888,7 @@ const sd = G[k], foeK = foeKeyOf(k), foe = G[foeK];
 if (sd.field.some(function(f){ return f.name === "春日局" &&!f.faceDown;})){
 const targets = foe.field.filter(function(f){ return effPower(foeK, f) <= 4000;});
 let go = false;
-if (isHuman(k)){ const p = await fxChoose("「春日局」の能力", "自分のメインフェイズ開始時：相手のパワー4000以下のイジンすべて（" + targets.length + "体）を裏にして魔力ゾーンに置き、自分のイジンすべてを手札に戻せるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+if (isHuman(k)){ const p = await fxChoose("「春日局」の能力", "自分のメインフェイズ開始時：相手のパワー4000以下のイジンすべて（" + targets.length + "体）を裏にして魔力ゾーンに置き、自分のイジンすべてを手札に戻せる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
 else go = targets.length >= 2;
 if (go){
 targets.slice().forEach(function(f){ greenFlipToMaryoku(foeK, f);});
@@ -4870,7 +4907,7 @@ let pick = null;
 if (isHuman(k)){
 const opts = cands.map(function(g){ return { label: "「" + g.name + "」を戦場に置く", sub: "ハイケイ Lv" + CARD[g.name].level};});
 opts.push({ label: "置かない", sub: ""});
-const pi = await fxChoose("「冨嶽三十六景」の能力", "自分のメインフェイズ開始時：自分の墓地の、遺業能力を持つハイケイ1つを戦場に置けるよ。", opts, k);
+const pi = await fxChoose("「冨嶽三十六景」の能力", "自分のメインフェイズ開始時：自分の墓地の、遺業能力を持つハイケイ1つを戦場に置ける。", opts, k);
 if (pi < cands.length) pick = cands[pi];
 } else pick = cands[0];
 if (pick){
@@ -4892,7 +4929,7 @@ if (opts.length){
 let ref = null;
 if (isHuman(k)){
 opts.push({ label: "戻さない", sub: "", ref: null});
-const pi = await fxChoose("「阿弥陀堂」の能力", "自分のメインフェイズ開始時：自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻せるよ。", opts, k);
+const pi = await fxChoose("「阿弥陀堂」の能力", "自分のメインフェイズ開始時：自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻せる。", opts, k);
 ref = opts[pi].ref;
 } else if (sd.field.length >= 5){
 const weak = sd.field.slice().sort(function(a, b){ return effPower(k, a) - effPower(k, b);})[0];
@@ -4953,7 +4990,7 @@ mz.faceUp = true;
 let g = D.guardians[0];
 if (isHuman(defKey) && D.guardians.length > 1){
 const opts = D.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を山札の上に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: defKey, uid: x.uid}};});
-const pi = await fxChoose("「遁甲式木蓮」の能力", "山札の上に戻す自分のガーディアンを選んでね。", opts, defKey);
+const pi = await fxChoose("「遁甲式木蓮」の能力", "山札の上に戻す自分のガーディアンを選ぶ。", opts, defKey);
 g = D.guardians[pi];
 }
 D.guardians = D.guardians.filter(function(x){ return x.uid!== g.uid;});
@@ -5001,7 +5038,7 @@ if (!go) return;
 let g = sd.guardians[0];
 if (isHuman(k) && sd.guardians.length > 1){
 const opts = sd.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を墓地に置く", sub: "左から" + (i + 1) + "番目", img: "back", hl: { side: k, uid: x.uid}};});
-const pi = await fxChoose("「安倍晴明」の能力", "墓地に置くガーディアンを選んでね。", opts, k);
+const pi = await fxChoose("「安倍晴明」の能力", "墓地に置くガーディアンを選ぶ。", opts, k);
 g = sd.guardians[pi];
 }
 sd.guardians = sd.guardians.filter(function(x){ return x.uid!== g.uid;});
@@ -5046,7 +5083,7 @@ if (!cols.length) return;
 const cands = [];
 ["P","C"].forEach(function(k2){ G[k2].field.forEach(function(f){ const fc = CARD[f.name].color || ""; if (cols.some(function(cc){ return colorMatch(fc, cc);})) cands.push({ k: k2, kind: "ijin", inst: f, label: "「" + f.name + "」を裏にして魔力ゾーンに置く", sub: whoName(k2) + "の戦場 ・ パワー" + effPower(k2, f), score: function(){ return (k2 === k? -1: 2) * effPower(k2, f);}});});});
 if (!cands.length) return;
-const pick = await fxPickOne(k, "「清少納言」の能力", "自分の魔力ゾーンのマリョクと同じ色を持つイジン1体を、裏にして持ち主の魔力ゾーンに置いてね（必須）。", cands);
+const pick = await fxPickOne(k, "「清少納言」の能力", "自分の魔力ゾーンのマリョクと同じ色を持つイジン1体を、裏にして持ち主の魔力ゾーンに置く（必須）。", cands);
 if (!pick) return;
 greenFlipToMaryoku(pick.k, pick.inst);
 log("「清少納言」の能力：「" + pick.inst.name + "」を裏にして、持ち主の魔力ゾーンに置いた。");
@@ -5115,7 +5152,7 @@ if (!go) return;
 let flip = ups[0];
 if (isHuman(k) && ups.length > 1){
 const fopts = ups.map(function(m){ return { label: "「" + m.name + "」を裏にする", sub: "Lv" + CARD[m.name].level};});
-const fp = await fxChoose("「出雲の阿国」の能力", "裏にする魔力ゾーンのカードを選んでね。", fopts, k);
+const fp = await fxChoose("「出雲の阿国」の能力", "裏にする魔力ゾーンのカードを選ぶ。", fopts, k);
 flip = ups[fp];
 }
 flip.faceUp = false; unequipBlade(k, flip.uid);
@@ -5146,7 +5183,7 @@ const avail = cands.slice();
 for (let i = 0; i < 2 && avail.length; i++){
 const opts = avail.map(function(g){ return { label: "「" + g.name + "」を手札に戻す", sub: "ハイケイ Lv" + CARD[g.name].level};});
 opts.push({ label: i === 0? "戻さない": "ここまでにする", sub: ""});
-const pi = await fxChoose("「葛飾北斎」の能力", "自分の墓地のハイケイを2つまで手札に戻せるよ（" + (i + 1) + "つ目）。", opts, k);
+const pi = await fxChoose("「葛飾北斎」の能力", "自分の墓地のハイケイを2つまで手札に戻せる（" + (i + 1) + "つ目）。", opts, k);
 if (pi >= avail.length) break;
 picks.push(avail[pi]); avail.splice(pi, 1);
 }
@@ -5234,7 +5271,7 @@ let pick = null;
 if (isHuman(k)){
 const opts = cs.map(function(c){ return { label: c.label, sub: c.sub, img: (c.kind === "guardian" || c.kind === "maryoku")? "back": c.inst.name, hl: { side: c.k, uid: c.inst.uid}};});
 opts.push({ label: "ここまでにする", sub: ""});
-const pi = await fxChoose("「間宮林蔵」の能力", "戦場のハイケイの色" + maxN + "種につき1つまで、戦場か魔力ゾーンの裏のカードを所有者の手札に戻せるよ（" + (done + 1) + "つ目）。", opts, k);
+const pi = await fxChoose("「間宮林蔵」の能力", "戦場のハイケイの色" + maxN + "種につき1つまで、戦場か魔力ゾーンの裏のカードを所有者の手札に戻せる（" + (done + 1) + "つ目）。", opts, k);
 if (pi >= cs.length) break;
 pick = cs[pi];
 } else {
@@ -5288,10 +5325,10 @@ if (isHuman(k)){
 const opts = [];
 if (artCands.length) opts.push({ label: "「美術」カード1つだけを墓地に置く", sub: artCands.map(function(h){ return "「" + h.name + "」";}).join("、") + " から選ぶ", act: "art"});
 opts.push({ label: "手札2枚を墓地に置く", sub: "", act: "two"});
-const pi = await fxChoose("「歌川広重」の能力", "手札2枚を墓地に置いてね（「美術」カードを置くなら1つでよい）。", opts, k);
+const pi = await fxChoose("「歌川広重」の能力", "手札2枚を墓地に置く（「美術」カードを置くなら1つでよい）。", opts, k);
 if (opts[pi].act === "art"){
 if (artCands.length === 1) artPick = artCands[0];
-else { const ai = await fxChoose("「歌川広重」の能力", "墓地に置く「美術」カードを選んでね。", artCands.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};}), k); artPick = artCands[ai];}
+else { const ai = await fxChoose("「歌川広重」の能力", "墓地に置く「美術」カードを選ぶ。", artCands.map(function(h){ return { label: "「" + h.name + "」を墓地に置く", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};}), k); artPick = artCands[ai];}
 } else twoMode = true;
 } else if (artCands.length) artPick = artCands[0];
 else twoMode = true;
@@ -5327,7 +5364,7 @@ G[k2].field.forEach(function(f){ cands.push({ k: k2, kind: "ijin", inst: f, labe
 G[k2].haikei.forEach(function(h){ cands.push({ k: k2, kind: "haikei", inst: h, label: "ハイケイ「" + h.name + "」を裏にして魔力ゾーンに置く", sub: whoName(k2) + "のハイケイ Lv" + CARD[h.name].level, score: function(){ return (k2 === k? -1: 1) * CARD[h.name].level;}});});
 });
 if (!cands.length) return;
-const pick = await fxPickOne(k, "「伊藤博文」の能力", "イジン1体かハイケイ1つを、裏にして持ち主の魔力ゾーンに置いてね（必須）。置くとイジン召喚権+1する。", cands);
+const pick = await fxPickOne(k, "「伊藤博文」の能力", "イジン1体かハイケイ1つを、裏にして持ち主の魔力ゾーンに置く（必須）。置くとイジン召喚権+1する。", cands);
 if (!pick) return;
 if (pick.kind === "ijin") greenFlipToMaryoku(pick.k, pick.inst); else greenHaikeiToMaryoku(pick.k, pick.inst);
 sd.summonRights += 1;
@@ -5360,7 +5397,7 @@ cpuUse: function(k, h){ return foeIjinCands(k).length > 0;},
 mahou: async function(k, inst, viaMeifu){
 const cands = foeIjinCands(k);
 if (!cands.length){ log("「エイジング」：相手の戦場にイジンがおらず、効果は発動しなかった。"); return;}
-const pick = await fxPickOne(k, "「エイジング」の能力", "相手のイジン1体を、裏にして持ち主の魔力ゾーンに置いてね。", cands);
+const pick = await fxPickOne(k, "「エイジング」の能力", "相手のイジン1体を、裏にして持ち主の魔力ゾーンに置く。", cands);
 if (!pick) return;
 greenFlipToMaryoku(pick.k, pick.inst);
 log("「エイジング」：「" + pick.inst.name + "」を裏にして、持ち主の魔力ゾーンに置いた。");
@@ -5401,12 +5438,12 @@ const mine = sd.field.filter(function(f){ return!f.sleeping;});
 if (!mine.length ||!foe.field.length){ log("「デュエル」：対象のイジンがおらず、効果は発動しなかった。"); return;}
 let myPick = mine.slice().sort(function(a, b){ return effPower(k, b) - effPower(k, a);})[0];
 if (isHuman(k) && mine.length > 1){
-const pi = await fxChoose("「デュエル」の能力", "自分の起きているイジン1体を選んでね。パワーが高いほうは寝て、低いほうは墓地に置かれる。", mine.map(function(f){ return { label: "「" + f.name + "」", sub: "パワー" + effPower(k, f)};}), k);
+const pi = await fxChoose("「デュエル」の能力", "自分の起きているイジン1体を選ぶ。パワーが高いほうは寝て、低いほうは墓地に置かれる。", mine.map(function(f){ return { label: "「" + f.name + "」", sub: "パワー" + effPower(k, f)};}), k);
 myPick = mine[pi];
 }
 let foePick = foe.field.slice().sort(function(a, b){ return effPower(foeK, a) - effPower(foeK, b);})[0];
 if (isHuman(k) && foe.field.length > 1){
-const pi = await fxChoose("「デュエル」の能力", "相手のイジン1体を選んでね。", foe.field.map(function(f){ return { label: "「" + f.name + "」", sub: "パワー" + effPower(foeK, f)};}), k);
+const pi = await fxChoose("「デュエル」の能力", "相手のイジン1体を選ぶ。", foe.field.map(function(f){ return { label: "「" + f.name + "」", sub: "パワー" + effPower(foeK, f)};}), k);
 foePick = foe.field[pi];
 }
 const a = effPower(k, myPick), b = effPower(foeK, foePick);
@@ -5436,11 +5473,11 @@ if (isHuman(k)){
 let cnt = 1;
 if (cands.length > 1){
 const cntOpts = cands.map(function(_, i){ return { label: (i + 1) + "つ置く", sub: ""};});
-cnt = (await fxChoose("「サーベイング」の能力", "手札のハイケイを好きなだけ墓地に置けるよ。置いたハイケイのレベルの合計5につき1ドローする。いくつ置く？", cntOpts, k)) + 1;
+cnt = (await fxChoose("「サーベイング」の能力", "手札のハイケイを好きなだけ墓地に置ける。置いたハイケイのレベルの合計5につき1ドローする。いくつ置く？", cntOpts, k)) + 1;
 }
 if (cnt >= cands.length) picks = cands.slice();
 else {
-const idxs = await fxMulti("「サーベイング」の能力", "墓地に置くハイケイを" + cnt + "つ選んでね。", cands.map(function(h){ return { label: "「" + h.name + "」", sub: "ハイケイ Lv" + CARD[h.name].level};}), cnt, k);
+const idxs = await fxMulti("「サーベイング」の能力", "墓地に置くハイケイを" + cnt + "つ選ぶ。", cands.map(function(h){ return { label: "「" + h.name + "」", sub: "ハイケイ Lv" + CARD[h.name].level};}), cnt, k);
 picks = idxs.map(function(i){ return cands[i];});
 }
 } else picks = cands.slice();
@@ -5472,11 +5509,11 @@ if (isHuman(k)){
 let cnt = 1;
 if (cands.length > 1){
 const cntOpts = cands.map(function(_, i){ return { label: (i + 1) + "枚置く", sub: ""};});
-cnt = (await fxChoose("「マナ」の能力", "自分の手札を好きなだけ、裏のまま魔力ゾーンに置けるよ。いくつ置く？", cntOpts, k)) + 1;
+cnt = (await fxChoose("「マナ」の能力", "自分の手札を好きなだけ、裏のまま魔力ゾーンに置ける。いくつ置く？", cntOpts, k)) + 1;
 }
 if (cnt >= cands.length) picks = cands.slice();
 else {
-const idxs = await fxMulti("「マナ」の能力", "魔力ゾーンに置く手札を" + cnt + "枚選んでね。", cands.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};}), cnt, k);
+const idxs = await fxMulti("「マナ」の能力", "魔力ゾーンに置く手札を" + cnt + "枚選ぶ。", cands.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level};}), cnt, k);
 picks = idxs.map(function(i){ return cands[i];});
 }
 } else {
@@ -5493,7 +5530,7 @@ const G = S.G, sd = G[k];
 const cands = [];
 ["P","C"].forEach(function(k2){ G[k2].maryoku.forEach(function(m){ cands.push({ k: k2, kind: "maryoku", inst: m, label: m.faceUp? "「" + m.name + "」を手札に戻す": "裏のカードを手札に戻す", sub: whoName(k2) + "の魔力ゾーン" + (m.faceUp? " ・ Lv" + CARD[m.name].level: ""), score: function(){ return (k2 === k? -1: 2) * (m.faceUp? CARD[m.name].level: 1);}});});});
 if (cands.length){
-const pick = await fxPickOne(k, "「スパイク」の能力", "魔力ゾーンのカード1つを、所有者の手札に戻してね（必須）。", cands);
+const pick = await fxPickOne(k, "「スパイク」の能力", "魔力ゾーンのカード1つを、所有者の手札に戻す（必須）。", cands);
 if (pick){
 const owner = G[pick.k];
 owner.maryoku = owner.maryoku.filter(function(m){ return m.uid!== pick.inst.uid;});
@@ -5625,13 +5662,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         // 長宗我部元親：自分のガーディアン1体を破壊して3ドロー
         if (sd.field.some(function(f){ return f.name === "長宗我部元親" &&!f.faceDown;}) && sd.guardians.length){
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「長宗我部元親」の能力", "自分のエンドフェイズ：自分のガーディアン1体を破壊して、3ドローできるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+          if (isHuman(k)){ const p = await fxChoose("「長宗我部元親」の能力", "自分のエンドフェイズ：自分のガーディアン1体を破壊して、3ドローできる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
           else go = sd.hand.length <= 4;
           if (go){
             let g = sd.guardians[0];
             if (isHuman(k) && sd.guardians.length > 1){
               const opts = sd.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を破壊する", sub: "左から" + (i + 1) + "番目", img: "back", hl: { side: k, uid: x.uid}};});
-              const pi = await fxChoose("「長宗我部元親」の能力", "破壊する自分のガーディアンを選んでね。", opts, k);
+              const pi = await fxChoose("「長宗我部元親」の能力", "破壊する自分のガーディアンを選ぶ。", opts, k);
               g = sd.guardians[pi];
             }
             await processDestruction([{ sideKey: k, kind: "guardian", uid: g.uid}]);
@@ -5647,9 +5684,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const cands = [];
           ["P", "C"].forEach(function(k2){ G[k2].field.forEach(function(f){ if (f.uid!== nakaoka.uid) cands.push({ k: k2, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: whoName(k2) + "の戦場 ・ パワー" + effPower(k2, f), score: function(){ return k2 === k? -effPower(k2, f): effPower(k2, f);}});});});
           let go = cands.length > 0;
-          if (go && isHuman(k)){ const p = await fxChoose("「中岡慎太郎」の能力", "自分のエンドフェイズ：ガーディアンが2体以上いるので、これを破壊して、イジン1体を破壊できるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+          if (go && isHuman(k)){ const p = await fxChoose("「中岡慎太郎」の能力", "自分のエンドフェイズ：ガーディアンが2体以上いるので、これを破壊して、イジン1体を破壊できる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
           if (go){
-            const pick = await fxPickOne(k, "「中岡慎太郎」の能力", "破壊するイジン1体を選んでね（「中岡慎太郎」自身も破壊される）。", cands);
+            const pick = await fxPickOne(k, "「中岡慎太郎」の能力", "破壊するイジン1体を選ぶ（「中岡慎太郎」自身も破壊される）。", cands);
             const evs = [{ sideKey: k, kind: "ijin", uid: nakaoka.uid}];
             if (pick) evs.push({ sideKey: pick.k, kind: "ijin", uid: pick.inst.uid});
             log("「中岡慎太郎」の能力：自身を破壊してイジン1体を破壊する！");
@@ -5668,7 +5705,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               let g = foe.guardians[0];
               if (isHuman(k) && foe.guardians.length > 1){
                 const opts = foe.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "をめくる", sub: "左から" + (i + 1) + "番目", img: "back", hl: { side: foeK, uid: x.uid}};});
-                const pi = await fxChoose("「賀茂保憲」の能力", "めくる相手のガーディアンを選んでね。", opts, k);
+                const pi = await fxChoose("「賀茂保憲」の能力", "めくる相手のガーディアンを選ぶ。", opts, k);
                 g = foe.guardians[pi];
               }
               log("「賀茂保憲」の能力：「" + name + "」と宣言。めくったガーディアンは「" + g.name + "」だった。");
@@ -5691,9 +5728,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (G.over) return;
           if (!sd.field.length) break;
           let go = false;
-          if (isHuman(k)){ const p = await fxChoose("「渡川の陣」の能力", "自分のエンドフェイズ：自分のイジン1体を破壊できるよ。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
+          if (isHuman(k)){ const p = await fxChoose("「渡川の陣」の能力", "自分のエンドフェイズ：自分のイジン1体を破壊できる。発動する？", [{ label: "発動する"}, { label: "発動しない"}], k); go = (p === 0);}
           if (!go) break;
-          const pick = await fxPickOne(k, "「渡川の陣」の能力", "破壊する自分のイジン1体を選んでね。", ownIjinCands(k));
+          const pick = await fxPickOne(k, "「渡川の陣」の能力", "破壊する自分のイジン1体を選ぶ。", ownIjinCands(k));
           if (pick){ await processDestruction([{ sideKey: k, kind: "ijin", uid: pick.inst.uid}]); renderBattle();}
         }
         // 擬洋風建築：イジン召喚権もマリョク配置権も0なら破壊される
@@ -5719,7 +5756,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               await processDestruction([{ sideKey: ok2, kind: "haikei", uid: hk.uid}]);
               renderBattle();
             } else {
-              const pick = await fxPickOne(k, "「喀血の流行り病」の能力", "メインフェイズ開始時：ターンプレイヤーの戦場のイジン1体が破壊される。破壊するイジンを選んでね（ターンプレイヤーが選ぶ）。", ownIjinCands(k));
+              const pick = await fxPickOne(k, "「喀血の流行り病」の能力", "メインフェイズ開始時：ターンプレイヤーの戦場のイジン1体が破壊される。破壊するイジンを選ぶ（ターンプレイヤーが選ぶ）。", ownIjinCands(k));
               if (pick){ log("「喀血の流行り病」の能力：「" + pick.inst.name + "」が破壊される！"); await processDestruction([{ sideKey: k, kind: "ijin", uid: pick.inst.uid}]); renderBattle();}
             }
           }
@@ -5729,7 +5766,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (G.over) return;
           let act = 0;
           if (isHuman(k)){
-            const pi = await fxChoose("「擬洋風建築」の能力", "自分のメインフェイズ開始時：どちらかの権利を+1できるよ。", [{ label: "イジン召喚権+1", sub: ""}, { label: "マリョク配置権+1", sub: ""}, { label: "発動しない", sub: ""}], k);
+            const pi = await fxChoose("「擬洋風建築」の能力", "自分のメインフェイズ開始時：どちらかの権利を+1できる。", [{ label: "イジン召喚権+1", sub: ""}, { label: "マリョク配置権+1", sub: ""}, { label: "発動しない", sub: ""}], k);
             act = pi === 0? 1: (pi === 1? 2: 0);
           } else act = sd.hand.some(function(h){ return CARD[h.name].type === "I";})? 1: 2;
           if (act === 1){ sd.summonRights += 1; log("「擬洋風建築」の能力：イジン召喚権+1した。");}
@@ -6255,6 +6292,96 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           return '<span class="cdot" style="--cc:' + colorHex(col) + '; background:' + colorHex(col) + '"></span>';
         }).join("") + '</span>';
       }
+      /* ================= デッキコード（書き出し・読み込み） =================
+         保存デッキは開いた場所（オリジン）ごとに分かれて保存されるため、デッキを
+         テキストの「コード」にして別の場所へ持ち運べるようにする。
+         形式は "IJD1." + base64(UTF-8 の JSON {v,name,colors,cards})。
+         読み込み時は、カード名が実在することと同名4枚までを検証してから保存する。 */
+      const DECKCODE_PREFIX = "IJD1.";
+      function encodeDeckCode(d){
+        const payload = { v: 1, name: d.name || "無名の軍団", colors: deckColors(d), cards: Object.assign({}, d.cards) };
+        const bytes = new TextEncoder().encode(JSON.stringify(payload));
+        let bin = "";
+        bytes.forEach(function(b){ bin += String.fromCharCode(b); });
+        return DECKCODE_PREFIX + btoa(bin);
+      }
+      function decodeDeckCode(str){
+        if (!str) return null;
+        let s = String(str).replace(/\s+/g, "");
+        const i = s.indexOf(DECKCODE_PREFIX);
+        if (i >= 0) s = s.slice(i + DECKCODE_PREFIX.length);
+        if (!s) return null;
+        let obj = null;
+        try {
+          const bin = atob(s);
+          const bytes = new Uint8Array(bin.length);
+          for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+          obj = JSON.parse(new TextDecoder().decode(bytes));
+        } catch(e){ return null; }
+        if (!obj || typeof obj !== "object" || !obj.cards || typeof obj.cards !== "object") return null;
+        const cards = {};
+        Object.keys(obj.cards).forEach(function(n){
+          if (!CARD[n]) return;
+          let c = Math.floor(Number(obj.cards[n]) || 0);
+          if (c > 4) c = 4;
+          if (c > 0) cards[n] = c;
+        });
+        if (!Object.keys(cards).length) return null;
+        let colors = Array.isArray(obj.colors) ? obj.colors.filter(function(c){ return COLORS.indexOf(c) >= 0; }).slice(0, 2) : [];
+        if (!colors.length){
+          Object.keys(cards).forEach(function(n){
+            String((CARD[n] && CARD[n].color) || "").split("").forEach(function(ch){
+              if (COLORS.indexOf(ch) >= 0 && colors.indexOf(ch) < 0 && colors.length < 2) colors.push(ch);
+            });
+          });
+        }
+        if (!colors.length) colors = ["紫"];
+        const name = String(obj.name || "").trim().slice(0, 40) || "読み込んだデッキ";
+        return { name: name, colors: colors, cards: cards };
+      }
+      function openDeckCodeExport(d){
+        $("deckcode-name").textContent = "『" + d.name + "』（" + deckColorLabel(d) + " ・ " + deckCountsTotal(d.cards) + "枚）";
+        $("deckcode-text").value = encodeDeckCode(d);
+        $("deckcode-msg").textContent = "このコードをコピーして、引っ越し先の「軍団編成 → コードを貼り付けて読み込む」に貼り付ける。";
+        $("btn-deckcode-copy").textContent = "コードをコピー";
+        $("overlay-deckcode").classList.add("on");
+      }
+      $("btn-deckcode-close").addEventListener("click", function(){ $("overlay-deckcode").classList.remove("on"); });
+      $("btn-deckcode-copy").addEventListener("click", function(){
+        const ta = $("deckcode-text"), msg = $("deckcode-msg"), btn = $("btn-deckcode-copy");
+        function ok(){ btn.textContent = "コピーしました ✓"; msg.textContent = "コピーできた。引っ越し先の軍団編成で読み込む。"; }
+        function fallback(){
+          try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); } catch(e){}
+          let done = false;
+          try { done = document.execCommand("copy"); } catch(e){}
+          if (done) ok();
+          else msg.textContent = "自動コピーできませんでした。コードを長押しして「コピー」する（コードは選択済みだ）。";
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(ok, fallback);
+        else fallback();
+      });
+      $("btn-code-import-open").addEventListener("click", function(){
+        $("deckimport-text").value = "";
+        $("deckimport-msg").style.display = "none";
+        $("overlay-deckimport").classList.add("on");
+        setTimeout(function(){ try { $("deckimport-text").focus(); } catch(e){} }, 80);
+      });
+      $("btn-deckimport-cancel").addEventListener("click", function(){ $("overlay-deckimport").classList.remove("on"); });
+      $("btn-deckimport-do").addEventListener("click", function(){
+        const d = decodeDeckCode($("deckimport-text").value);
+        const msg = $("deckimport-msg");
+        if (!d){
+          msg.style.display = "";
+          msg.textContent = "コードを読み取れませんでした。コード全体をコピーして貼り付けたか、確認する。";
+          return;
+        }
+        saveDeckAsNew(d.name, d.colors[0], d.cards, d.colors);
+        $("overlay-deckimport").classList.remove("on");
+        renderGundan();
+        const done = $("code-import-done");
+        done.style.display = "";
+        done.textContent = "『" + d.name + "』を読み込みました（" + deckCountsTotal(d.cards) + "枚）。保存デッキの一覧に追加されている。";
+      });
       /* 構築中の色の組（軍団編成のときだけ複数色ありうる。それ以外は代表色のみ） */
       function curBuildColors(){
         return (S.buildCtx === "gundan" && S.buildColors && S.buildColors.length) ? S.buildColors : [S.buildColor];
@@ -6294,13 +6421,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           row.innerHTML =
             deckDotsHtml(d) +
             '<div class="info"><div class="nm"></div><div class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + (isDraft ? dTotal + '/40枚 ・ 作成中' : dTotal + '枚') + '</div></div>' +
-            '<div class="g-act"><button type="button" class="edit">編集</button><button type="button" class="del">削除</button></div>';
+            '<div class="g-act"><button type="button" class="code">コード</button><button type="button" class="edit">編集</button><button type="button" class="del">削除</button></div>';
           row.querySelector(".nm").textContent = d.name;
           if (isDraft){
             const badge = document.createElement("span");
             badge.className = "draft-badge"; badge.textContent = "作成中";
             row.querySelector(".nm").appendChild(badge);
           }
+          row.querySelector(".code").addEventListener("click", function(){ openDeckCodeExport(d); });
           row.querySelector(".edit").addEventListener("click", function(){ startGundanEdit(d); });
           const delBtn = row.querySelector(".del");
           delBtn.addEventListener("click", function(){
@@ -6786,7 +6914,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.gameMode === "online") log("対戦開始！ あなたは"+S.playerColor+"デッキ、相手は"+S.cpuColor+"デッキ。", "sys");
         else if (S.gameMode === "2p") log("対戦開始！ プレイヤー1は"+S.playerColor+"デッキ、プレイヤー2は"+S.cpuColor+"デッキ。", "sys");
         else log("対戦開始！ あなたは"+S.playerColor+"デッキ、CPUは"+S.cpuColor+"デッキ。", "sys");
-        if (S.gameMode === "cpu") log("CPUの強さは「" + (S.cpuLevel === "master" ? "達人" : (S.cpuLevel === "novice" ? "見習い" : "凡人")) + "」だよ。", "sys");
+        if (S.gameMode === "cpu") log("CPUの強さは「" + (S.cpuLevel === "master" ? "達人" : (S.cpuLevel === "novice" ? "見習い" : "凡人")) + "」だ。", "sys");
         const mats = applyMats(playerDeckNames, cpuDeckNames);
         log("プレイマット："+whoName("P")+"の陣地は"+mats[0]+"色、"+whoName("C")+"の陣地は"+mats[1]+"色のマット。", "sys");
         log("手札6枚を引き、山札の上4枚をガーディアンに置いた。先攻は"+whoName(firstKey || "P")+"。", "sys");
@@ -7224,7 +7352,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (!S.G.noModernBonus && haikeiActive(side, "米百俵") && !haikeiDisabled(sideKey)){
           let convert = false;
           if (isHuman(sideKey)){
-            const p = await fxChoose("「米百俵」の能力", "能力で" + n + "ドローするところを、引く代わりにマリョク配置権+" + n + "にできるよ。どうする？", [{ label: "ドローする（" + n + "枚引く）" }, { label: "マリョク配置権+" + n + "にする" }], sideKey);
+            const p = await fxChoose("「米百俵」の能力", "能力で" + n + "ドローするところを、引く代わりにマリョク配置権+" + n + "にできる。どうする？", [{ label: "ドローする（" + n + "枚引く）" }, { label: "マリョク配置権+" + n + "にする" }], sideKey);
             convert = (p === 1);
           } else {
             convert = S.G.turn === sideKey && side.maryokuRights === 0 && side.hand.some(function(h){ return isMaryokuCard(CARD[h.name]); });
@@ -7320,7 +7448,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("grave-title").textContent = whoName(sideKey) + "の墓地（" + side.grave.length + "枚）";
         const list = $("grave-list"); list.innerHTML = "";
         if (!side.grave.length){
-          list.innerHTML = '<div class="grave-empty">墓地は空だよ。</div>';
+          list.innerHTML = '<div class="grave-empty">墓地は空だ。</div>';
         } else {
           side.grave.slice().reverse().forEach(function(g){
             const c = CARD[g.name];
@@ -7479,7 +7607,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (n <= 0) return;
         let idxs;
         if (isHuman(sideKey)){
-          idxs = await fxMulti(reason || "手札を捨てる", "捨てるカードを" + n + "枚選んでね。", side.hand.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; }), n, sideKey);
+          idxs = await fxMulti(reason || "手札を捨てる", "捨てるカードを" + n + "枚選ぶ。", side.hand.map(function(h){ return { label: "「" + h.name + "」", sub: classOf(CARD[h.name]) + " Lv" + CARD[h.name].level }; }), n, sideKey);
         } else if (S.cpuLevel === "novice") {
           const pool = side.hand.map(function(h, i){ return i; });
           idxs = [];
@@ -7516,7 +7644,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             if (!side.grave.some(function(g){ return g.uid === c.uid; })) continue;
             let use = false;
             if (isHuman(sideKey)){
-              const p = await fxChoose("「払暁の城壁」の能力", "手札から墓地に置かれた「" + c.name + "」の遺業【冥府発動】を発動できるよ（ターンに1回）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], sideKey);
+              const p = await fxChoose("「払暁の城壁」の能力", "手札から墓地に置かれた「" + c.name + "」の遺業【冥府発動】を発動できる（ターンに1回）。発動する？", [{ label: "発動する" }, { label: "発動しない" }], sideKey);
               use = (p === 0);
             } else {
               const fr = FX3[c.name] || FX2[c.name] || FX4[c.name] || FX6[c.name];
@@ -7547,14 +7675,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       function legacyDesc(name, kind){
         switch (kind){
-          case "fukugen": return "遺業【復元】：このカードを魔力ゾーンに表向きで置けるよ（配置権は不要）。発動する？";
-          case "maryokuka": return "遺業【魔力化】：このカードを魔力ゾーンに裏向きで置けるよ（配置権は不要）。発動する？";
-          case "meifu": return "遺業【冥府発動】：色・レベル・コストを無視して、このマホウの効果を発動できるよ。発動する？";
-          case "draw": return "遺業：1ドローできるよ。発動する？";
-          case "kodama": return "遺業【木霊】：自分の手札か墓地から、これより低いレベルのイジン1体を戦場に置けるよ。発動する？";
-          case "tefuda": return "遺業：このカードを手札に戻せるよ。発動する？";
-          case "soshin": return "遺業【喪神】：アタッカー1体をアタッカーでない状態にできるよ。発動する？";
-          case "deckUD": return "遺業：このカードを山札の上か下に戻せるよ。発動する？";
+          case "fukugen": return "遺業【復元】：このカードを魔力ゾーンに表向きで置ける（配置権は不要）。発動する？";
+          case "maryokuka": return "遺業【魔力化】：このカードを魔力ゾーンに裏向きで置ける（配置権は不要）。発動する？";
+          case "meifu": return "遺業【冥府発動】：色・レベル・コストを無視して、このマホウの効果を発動できる。発動する？";
+          case "draw": return "遺業：1ドローできる。発動する？";
+          case "kodama": return "遺業【木霊】：自分の手札か墓地から、これより低いレベルのイジン1体を戦場に置ける。発動する？";
+          case "tefuda": return "遺業：このカードを手札に戻せる。発動する？";
+          case "soshin": return "遺業【喪神】：アタッカー1体をアタッカーでない状態にできる。発動する？";
+          case "deckUD": return "遺業：このカードを山札の上か下に戻せる。発動する？";
         }
         return "遺業能力を発動する？";
       }
@@ -7618,13 +7746,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (faceUpMz.length && inGrave.length){
             const opts = inGrave.map(function(d){ return { label: "「" + d.inst.name + "」を所有者の手札に戻す", sub: whoName(d.sideKey) + "のカード ・ " + (d.kind === "guardian" ? "ガーディアン" : classOf(CARD[d.inst.name])) }; });
             opts.push({ label: "発動しない", sub: "" });
-            const pick = await fxChoose("クララ・バートンの能力", "戦場のカードが破壊された。自分の魔力ゾーンの表向きカード1枚を裏向きにして、破壊されたカード1枚を所有者の手札に戻せるよ。", opts, ownerKey);
+            const pick = await fxChoose("クララ・バートンの能力", "戦場のカードが破壊された。自分の魔力ゾーンの表向きカード1枚を裏向きにして、破壊されたカード1枚を所有者の手札に戻せる。", opts, ownerKey);
             if (pick < inGrave.length){
               const target = inGrave[pick];
               let flip = faceUpMz[0];
               if (faceUpMz.length > 1){
                 const fopts = faceUpMz.map(function(m){ return { label: "「" + m.name + "」を裏向きにする", sub: "Lv" + CARD[m.name].level }; });
-                const fp = await fxChoose("裏向きにするマリョク", "クララ・バートンの能力のコストとして、裏向きにする魔力ゾーンのカードを選んでね。", fopts, ownerKey);
+                const fp = await fxChoose("裏向きにするマリョク", "クララ・バートンの能力のコストとして、裏向きにする魔力ゾーンのカードを選ぶ。", fopts, ownerKey);
                 flip = faceUpMz[fp];
               }
               flip.faceUp = false; unequipBlade(ownerKey, flip.uid);
@@ -7674,7 +7802,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             if (!owner.grave.some(function(g){ return g.uid === d.inst.uid; })) continue;
             let use = false;
             if (isHuman(d.sideKey)){
-              const pick = await fxChoose("「神剣眠る氏社」の能力", "自分の赤のイジン「" + d.inst.name + "」が破壊された。そのイジン1体を裏にして魔力ゾーンに置けるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], d.sideKey);
+              const pick = await fxChoose("「神剣眠る氏社」の能力", "自分の赤のイジン「" + d.inst.name + "」が破壊された。そのイジン1体を裏にして魔力ゾーンに置ける。発動する？", [{ label: "発動する" }, { label: "発動しない" }], d.sideKey);
               use = (pick === 0);
             } else use = true;
             if (use){
@@ -7764,7 +7892,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             fromHand.forEach(function(h){ opts.push({ label: "「" + h.name + "」（手札から）", sub: "Lv" + CARD[h.name].level + " パワー" + CARD[h.name].power, ref: { src: "hand", uid: h.uid } }); });
             fromGrave.forEach(function(g){ opts.push({ label: "「" + g.name + "」（墓地から）", sub: "Lv" + CARD[g.name].level + " パワー" + CARD[g.name].power, ref: { src: "grave", uid: g.uid } }); });
             opts.push({ label: "置かない", ref: null });
-            const pick = await fxChoose("「" + inst.name + "」の遺業【木霊】", "手札か墓地から、Lv" + lv + "より低いイジン1体を戦場に置けるよ。", opts, sideKey);
+            const pick = await fxChoose("「" + inst.name + "」の遺業【木霊】", "手札か墓地から、Lv" + lv + "より低いイジン1体を戦場に置ける。", opts, sideKey);
             chosen = opts[pick].ref;
             if (!chosen) return;
           } else {
@@ -7811,7 +7939,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         } else if (kind === "deckUD"){
           let toTop = true;
           if (isHuman(sideKey)){
-            const p = await fxChoose("「" + inst.name + "」の遺業能力", "このカードを山札の上か下に戻せるよ。", [{ label: "山札の上に戻す" }, { label: "山札の下に戻す" }], sideKey);
+            const p = await fxChoose("「" + inst.name + "」の遺業能力", "このカードを山札の上か下に戻せる。", [{ label: "山札の上に戻す" }, { label: "山札の下に戻す" }], sideKey);
             toTop = (p === 0);
           }
           side.grave = side.grave.filter(function(g){ return g.uid !== inst.uid; });
@@ -7832,7 +7960,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             let g = side.guardians[0];
             if (isHuman(sideKey) && side.guardians.length > 1){
               const opts = side.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を手札に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: sideKey, uid: x.uid } }; });
-              const pick = await fxChoose("スピリットアウェイ", "手札に戻す自分のガーディアンを選んでね（必須）。番号は場のガーディアンのバッジと対応してるよ。", opts, sideKey);
+              const pick = await fxChoose("スピリットアウェイ", "手札に戻す自分のガーディアンを選ぶ（必須）。番号は場のガーディアンのバッジと対応している。", opts, sideKey);
               g = side.guardians[pick];
             }
             side.guardians = side.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -7868,7 +7996,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             let pickC = cands[0];
             if (isHuman(sideKey)){
               const opts = cands.map(function(c){ return { label: "「" + c.g.name + "」", sub: whoName(c.owner) + "の墓地 ・ Lv" + CARD[c.g.name].level + " パワー" + CARD[c.g.name].power }; });
-              const pick = await fxChoose("コーザリティ", "どちらかの墓地のイジン1体を、所有者の手札に戻してね（必須）。", opts, sideKey);
+              const pick = await fxChoose("コーザリティ", "どちらかの墓地のイジン1体を、所有者の手札に戻す（必須）。", opts, sideKey);
               pickC = cands[pick];
             }
             const os = G[pickC.owner];
@@ -7902,7 +8030,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (abilitiesBlocked()){
           log("太白のピラーの効果で「" + inst.name + "」の能力は発動できない。", "sys");
           // ログは画面に表示されないため、封じられた理由をその場で見える形で知らせる
-          if (isHuman(sideKey)) await fxInfo("「" + inst.name + "」の能力は発動できない", "表向きの「太白のピラー」の効果で、戦場と魔力ゾーンの能力は発動できないよ。そのため「" + inst.name + "」の能力（ドローなど）は発動しなかった。ピラーは持ち主のターン開始時に裏向きになるよ。", sideKey);
+          if (isHuman(sideKey)) await fxInfo("「" + inst.name + "」の能力は発動できない", "表向きの「太白のピラー」の効果で、戦場と魔力ゾーンの能力は発動できない。そのため「" + inst.name + "」の能力（ドローなど）は発動しなかった。ピラーは持ち主のターン開始時に裏向きになる。", sideKey);
           return;
         }
         if (abilitiesLost(sideKey, inst)){ log("「クロード・アシル・ドビュッシー」の効果で「" + inst.name + "」は能力すべてを失っているため、能力は発動しない。", "sys"); return; }
@@ -7931,7 +8059,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             let g = side.guardians[0];
             if (side.guardians.length > 1){
               const gopts = side.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1), sub: "左から" + (i + 1) + "番目・裏向きのまま山札の上へ", img: "back", hl: { side: sideKey, uid: x.uid } }; });
-              const gp = await fxChoose("「李成桂」の能力", "山札の上に戻すガーディアンを選んでね。番号は場のガーディアンのバッジと対応してるよ。", gopts, sideKey);
+              const gp = await fxChoose("「李成桂」の能力", "山札の上に戻すガーディアンを選ぶ。番号は場のガーディアンのバッジと対応している。", gopts, sideKey);
               g = side.guardians[gp];
             }
             side.guardians = side.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -7939,7 +8067,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             log("「李成桂」の能力：ガーディアンを山札の上に戻した。（裏向きのまま：中身は非公開）");
           } else if (act === "v"){
             const vopts = side.grave.map(function(x){ return { label: "「" + x.name + "」", sub: classOf(CARD[x.name]) + " Lv" + CARD[x.name].level }; });
-            const vp = await fxChoose("「李成桂」の能力", "山札の上に戻す、墓地のカードを選んでね。", vopts, sideKey);
+            const vp = await fxChoose("「李成桂」の能力", "山札の上に戻す、墓地のカードを選ぶ。", vopts, sideKey);
             const card = side.grave[vp];
             side.grave.splice(vp, 1);
             side.deck.unshift({ uid: card.uid, name: card.name });
@@ -7952,7 +8080,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           ["P","C"].forEach(function(k){ G[k].guardians.forEach(function(g, i){ targets.push({ k: k, g: g, i: i }); }); });
           if (!targets.length) return;
           const opts = targets.map(function(t){ return { label: (t.k === sideKey ? "自分の" : whoName(t.k) + "の") + "ガーディアン" + (t.i + 1), sub: "左から" + (t.i + 1) + "番目", img: "back", hl: { side: t.k, uid: t.g.uid } }; });
-          const pick = await fxChoose("「篤姫」の能力", "どちらかの戦場の裏向きカード1枚の表を見るよ（必須）。番号は場のガーディアンのバッジと対応してるよ。", opts, sideKey);
+          const pick = await fxChoose("「篤姫」の能力", "どちらかの戦場の裏向きカード1枚の表を見る（必須）。番号は場のガーディアンのバッジと対応している。", opts, sideKey);
           const t = targets[pick];
           log("「篤姫」の能力で裏向きカード1枚の表を見た。");
           await fxInfo("篤姫が見たカード", "それは「" + t.g.name + "」（" + classOf(CARD[t.g.name]) + " ・ Lv" + CARD[t.g.name].level + "）だった。", sideKey);
@@ -7969,7 +8097,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (side.guardians.length && isHuman(sideKey)){
           const opts = side.guardians.map(function(x, i){ return { label: "ガーディアン" + (i + 1) + "を手札に戻す", sub: "左から" + (i + 1) + "番目・裏向きのまま戻す", img: "back", hl: { side: sideKey, uid: x.uid } }; });
           opts.push({ label: "戻さない", sub: "" });
-          const pick = await fxChoose("「タウンゼント・ハリス」の能力【航海】", "自分のガーディアン1体を手札に戻してもよい。番号は場のガーディアンのバッジと対応してるよ。", opts, sideKey);
+          const pick = await fxChoose("「タウンゼント・ハリス」の能力【航海】", "自分のガーディアン1体を手札に戻してもよい。番号は場のガーディアンのバッジと対応している。", opts, sideKey);
           if (pick < side.guardians.length){
             const g = side.guardians[pick];
             side.guardians = side.guardians.filter(function(x){ return x.uid !== g.uid; });
@@ -8028,7 +8156,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             const opts = choices.map(function(x){ return { label: x + "枚落とす", sub: x === 0 ? "何もしない（権利は増えない）" : (x === 1 ? "マリョク配置権+1" : (x === 2 ? "マリョク配置権+1 ・ イジン召喚権+1" : "マリョク配置権+1 ・ イジン召喚権+1 ・ 1ドロー")) }; });
             const pick = await fxChoose(
               "🏠「浪士集う長屋」の効果" + (copies > 1 ? "（" + (c + 1) + "枚目／全" + copies + "枚）" : ""),
-              "自分のメインフェイズ開始時だから、「浪士集う長屋」の効果が発動できるよ。\nハイケイはタップして使う能力じゃないよ。毎ターン、自分のメインフェイズが始まる時に自動でこの確認が出る。\n山札の上から何枚を墓地に置くか選んでね（山札は残り" + side.deck.length + "枚・枚数は落とす前に決める）。落とした枚数で増える権利が変わるよ。",
+              "自分のメインフェイズ開始時だから、「浪士集う長屋」の効果が発動できる。\nハイケイはタップして使う能力じゃない。毎ターン、自分のメインフェイズが始まる時に自動でこの確認が出る。\n山札の上から何枚を墓地に置くか選ぶ（山札は残り" + side.deck.length + "枚・枚数は落とす前に決める）。落とした枚数で増える権利が変わる。",
               opts, sideKey);
             n = choices[pick];
           } else { n = max; setTicker("CPUが「浪士集う長屋」の効果で山札を" + n + "枚墓地に置いた"); } // CPUは3枚落とす
@@ -8060,19 +8188,19 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         let body = "";
         if (isNagaya) body = "効果：自分のメインフェイズ開始時、山札の上から最大3枚までを墓地に置ける。1枚以上でマリョク配置権+1、2枚以上でさらにイジン召喚権+1、3枚でさらに1ドロー。";
         else if (c.text) body = "効果：" + c.text;
-        else body = "ハイケイは、場に置かれていることで効果が働くカードだよ。";
+        else body = "ハイケイは、場に置かれていることで効果が働くカードだ。";
         body += "\n\n発動タイミング：" + (isNagaya
-          ? "自分のメインフェイズ開始時（誘発型）。タップしても発動しないよ。毎ターン、自分のメインフェイズが始まる時に自動で確認画面が出る。"
-          : "カードに書かれたタイミングで自動的に働くよ。タップしても発動しないよ。");
+          ? "自分のメインフェイズ開始時（誘発型）。タップしても発動しない。毎ターン、自分のメインフェイズが始まる時に自動で確認画面が出る。"
+          : "カードに書かれたタイミングで自動的に働く。タップしても発動しない。");
         let canActivate = false;
         if (isNagaya){
-          if (sideKey !== G.turn) body += "\n状態：今は" + whoName(G.turn) + "のターンだから発動しないよ。持ち主のメインフェイズ開始時に発動する。";
-          else if (!isHuman(G.turn) || (S.gameMode === "2p" && G.viewer !== G.turn)) body += "\n状態：今は発動できるタイミングじゃないよ。";
+          if (sideKey !== G.turn) body += "\n状態：今は" + whoName(G.turn) + "のターンだから発動しない。持ち主のメインフェイズ開始時に発動する。";
+          else if (!isHuman(G.turn) || (S.gameMode === "2p" && G.viewer !== G.turn)) body += "\n状態：今は発動できるタイミングじゃない。";
           else if (abilitiesBlocked()) body += "\n状態：太白のピラーの効果で、今は能力を発動できない。";
-          else if (h.placedTurnSeq === G.turnSeq && side.nagayaResolvedSeq === G.turnSeq) body += "\n状態：この長屋は今のメインフェイズが始まった後に場に出たから、このターンでは発動しないよ（開始時はまだ場に無かった）。次の自分のメインフェイズ開始時に発動する。";
-          else if (side.nagayaResolvedSeq === G.turnSeq) body += "\n状態：このターンのメインフェイズ開始時の確認はもう終わっているよ。次は次の自分のターンのメインフェイズ開始時に、自動で確認が出る。";
-          else if (G.mode === "main" && (side.nagayaAtStart || 0) > 0){ canActivate = true; body += "\n状態：今が発動できるタイミングだよ。下のボタンから発動できる。"; }
-          else body += "\n状態：今は発動できるタイミングじゃないよ。自分のメインフェイズ開始時に自動で確認が出る。";
+          else if (h.placedTurnSeq === G.turnSeq && side.nagayaResolvedSeq === G.turnSeq) body += "\n状態：この長屋は今のメインフェイズが始まった後に場に出たから、このターンでは発動しない（開始時はまだ場に無かった）。次の自分のメインフェイズ開始時に発動する。";
+          else if (side.nagayaResolvedSeq === G.turnSeq) body += "\n状態：このターンのメインフェイズ開始時の確認はもう終わっている。次は次の自分のターンのメインフェイズ開始時に、自動で確認が出る。";
+          else if (G.mode === "main" && (side.nagayaAtStart || 0) > 0){ canActivate = true; body += "\n状態：今が発動できるタイミングだ。下のボタンから発動できる。"; }
+          else body += "\n状態：今は発動できるタイミングじゃない。自分のメインフェイズ開始時に自動で確認が出る。";
         }
         fxGraveSetup(sideKey);
         $("fx-title").textContent = "ハイケイ「" + h.name + "」";
@@ -8101,7 +8229,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (abilitiesBlocked()){
           log("太白のピラーの効果で「岡田以蔵」の能力は発動できない。", "sys");
           // ログだけだと気づけないため、封じられた理由をその場でモーダルでも知らせる
-          if (isHuman(sideKey)) await fxInfo("「岡田以蔵」の能力は発動できない", "表向きの「太白のピラー」の効果で、戦場と魔力ゾーンの能力は発動できないよ。そのため、パワー6000以上の以蔵が寝ても破壊能力は発動しなかった。ピラーは持ち主のターン開始時に裏向きになるよ。", sideKey);
+          if (isHuman(sideKey)) await fxInfo("「岡田以蔵」の能力は発動できない", "表向きの「太白のピラー」の効果で、戦場と魔力ゾーンの能力は発動できない。そのため、パワー6000以上の以蔵が寝ても破壊能力は発動しなかった。ピラーは持ち主のターン開始時に裏向きになる。", sideKey);
           return;
         }
         // 判定は「寝た瞬間」の実効パワーで1回だけ行う（6000未満なら絶対に聞かない）
@@ -8630,7 +8758,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               bf.cesareSeq = G.turnSeq;
               const tc = ATK.field.map(function(f){ return { k: atkKey, kind: "ijin", inst: f, label: "「" + f.name + "」", sub: "パワー" + effPower(atkKey, f), score: function(){ return effPower(atkKey, f); } }; });
               if (tc.length){
-                const tp = await fxPickOne(defKey, "「チェーザレ・ボルジア」の能力", "このターン「パワー-2000」を与える相手のイジンを選んでね。", tc);
+                const tp = await fxPickOne(defKey, "「チェーザレ・ボルジア」の能力", "このターン「パワー-2000」を与える相手のイジンを選ぶ。", tc);
                 if (tp){ tp.inst.tempPow = (tp.inst.tempPow || 0) - 2000; log("「チェーザレ・ボルジア」の能力：「" + tp.inst.name + "」はこのターン「パワー-2000」を得た。"); renderBattle(); }
               }
             }
@@ -8730,7 +8858,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           // アンリ4世：ブロックされたとき（任意）イジン召喚権+1して、これとブロッカーすべてを手札に戻す
           if (atk.name === "アンリ4世" && blockers.length && !atk.henriUsed && !abilitiesBlocked()){
             let goHenri = false;
-            if (isHuman(atkKey)){ const p = await fxChoose("「アンリ4世」の能力", "ブロックされた！イジン召喚権+1して、「アンリ4世」とブロッカーすべてを手札に戻せるよ。発動する？", [{ label: "発動する" }, { label: "発動しない" }], atkKey); goHenri = (p === 0); }
+            if (isHuman(atkKey)){ const p = await fxChoose("「アンリ4世」の能力", "ブロックされた！イジン召喚権+1して、「アンリ4世」とブロッカーすべてを手札に戻せる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], atkKey); goHenri = (p === 0); }
             else goHenri = atkDies;
             if (goHenri){
               atk.henriUsed = true;
@@ -8998,7 +9126,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         P.haikei.push({ uid: card.uid, name: card.name, placedTurnSeq: G.turnSeq });
         noteSpellHaiUse(G.turn);
         G.selHandUid = null;
-        log("ハイケイ「"+card.name+"」を配置した。" + (card.name === "浪士集う長屋" ? "効果は自分のメインフェイズ開始時に自動で発動するよ（タップでは発動しない・場に出した直後のメインフェイズでは発動しない）。" : ""));
+        log("ハイケイ「"+card.name+"」を配置した。" + (card.name === "浪士集う長屋" ? "効果は自分のメインフェイズ開始時に自動で発動する（タップでは発動しない・場に出した直後のメインフェイズでは発動しない）。" : ""));
         renderBattle();
         await fireOnHaikeiPlace(G.turn, card);
         renderBattle();
@@ -9032,7 +9160,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               const maxD = Math.min(cost, others.length);
               const opts = [];
               for (let d = 0; d <= maxD; d++) opts.push({ label: d === 0 ? "捨てない（コスト" + cost + "のまま）" : d + "枚捨ててコスト-" + d, sub: "" });
-              const pi = await fxChoose("「千利休」の能力", "手札を墓地に置いて、このマホウの魔力コストを減らせるよ（1枚につき-1）。何枚捨てる？", opts, k);
+              const pi = await fxChoose("「千利休」の能力", "手札を墓地に置いて、このマホウの魔力コストを減らせる（1枚につき-1）。何枚捨てる？", opts, k);
               disc = pi;
             }
             if (disc > 0){
@@ -9600,7 +9728,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             const anyFree = DEF.guardians.some(function(g){ return !usedBy["guardian:" + g.uid]; })
               || DEF.field.some(function(f){ return !usedBy["ijin:" + f.uid] && canBlockIjin(defK, f); })
               || DEF.maryoku.some(function(m){ return !m.faceUp && standEligible(defK, m); });
-            if (!anyFree) html += "<br>※受けられるカードがもう無いよ（この攻撃は通ってしまう）";
+            if (!anyFree) html += "<br>※受けられるカードがもう無い（この攻撃は通ってしまう）";
           } else {
             html += "<br>ブロック成立！ 合計パワー（イジン）" + ijinSum + " vs 攻撃 " + aPow + " → " + (ijinSum >= aPow ? "アタッカーを破壊できる" : "アタッカーは戦場に残る");
             if (deadNames.length) html += "<br>破壊される受け側：" + deadNames.join("・");
@@ -9609,7 +9737,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             html += "<br>※太白のピラーの効果でスタンド不可";
           status.innerHTML = html;
         } else {
-          status.textContent = "上のアタッカーをタップして、対応する攻撃を選んでね。";
+          status.textContent = "上のアタッカーをタップして、対応する攻撃を選ぶ。";
         }
         // 下段：受けられるカード一覧（イジン→ガーディアン→スタンド候補の順）
         const brow = $("ds-blk-row"); brow.innerHTML = "";
@@ -9664,7 +9792,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (!anyCand){
           const d = document.createElement("div");
           d.className = "ds-none";
-          d.textContent = "受けられるカードがありません（イジンもガーディアンも無いよ）";
+          d.textContent = "受けられるカードがありません（イジンもガーディアンも無い）";
           brow.appendChild(d);
         }
         // フッター：未対応が残っていても確定できる（通す判断も防御側の権利）。件数はボタンに出す
@@ -9824,7 +9952,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             const a = (G.attackers || []).find(function(x){ return x.uid === uid; });
             return a ? "『" + a.name + "』（パワー" + effPower(G.resolveAtkKey || "C", a) + "）" : "";
           }).filter(Boolean).join("、");
-          $("resolve-text").textContent = "⚔ バトル解決：次に解決するアタッカーをシートから選んでね" + (rem ? "／選択待ち：" + rem : "");
+          $("resolve-text").textContent = "⚔ バトル解決：次に解決するアタッカーをシートから選ぶ" + (rem ? "／選択待ち：" + rem : "");
           $("btn-resolve-open").classList.toggle("hidden", !!G.resPopupOpen);
         }
         syncTicker();
@@ -9867,7 +9995,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           return b;
         }
         const use = canUseCard(P, c);
-        const useWhy = !use.colorOk ? "同じ色の表向きマリョクが魔力ゾーンに無いよ。" : ("魔力レベルが足りないよ（現在 "+use.levelSum+" / 必要 "+use.needLevel+"）。");
+        const useWhy = !use.colorOk ? "同じ色の表向きマリョクが魔力ゾーンに無い。" : ("魔力レベルが足りない（現在 "+use.levelSum+" / 必要 "+use.needLevel+"）。");
         // maryoku placement: any hand card
         addBtn("マリョクに置く", function(){ playerPlaceMaryoku(h.uid); }, P.maryokuRights > 0, "", P.maryokuRights <= 0 ? "マリョク配置権は1ターンに1回だけ。" : "");
         if (c.type === "I"){
@@ -9875,10 +10003,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             (P.summonRights <= 0 && !freeSummonFor(G.turn, c)) ? "イジン召喚権は1ターンに1回だけ。" : useWhy);
         } else if (isHaikeiCard(c)){
           addBtn("配置する", function(){ playerPlaceHaikei(h.uid); }, use.ok && !socratesBlocked(G.turn), "go",
-            socratesBlocked(G.turn) ? "「ソクラテス」の効果で、このターンはもうマホウ・ハイケイを使えないよ。" : useWhy);
+            socratesBlocked(G.turn) ? "「ソクラテス」の効果で、このターンはもうマホウ・ハイケイを使えない。" : useWhy);
         } else if (isMahouCard(c)){
           addBtn("使う（コスト"+mahouCostOf(G.turn, c)+"）", function(){ playerUseMahou(h.uid); }, use.ok && mahouPayableCount(G.turn) >= mahouCostOf(G.turn, c) && !mahouBlocked(G.turn) && P.noMahouSeq !== G.turnSeq && !socratesBlocked(G.turn), "go",
-            mahouBlocked(G.turn) ? "ピラーの効果で、あなたはマホウを使えないよ。" : (P.noMahouSeq === G.turnSeq ? "「リンボ」の効果で、このターンはマホウを使えないよ。" : (socratesBlocked(G.turn) ? "「ソクラテス」の効果で、このターンはもうマホウ・ハイケイを使えないよ。" : (mahouPayableCount(G.turn) < mahouCostOf(G.turn, c) ? "魔力コスト分のマリョクが無いよ（「ルター」がいる間は裏向きをコストにできない）。" : useWhy))));
+            mahouBlocked(G.turn) ? "ピラーの効果で、あなたはマホウを使えない。" : (P.noMahouSeq === G.turnSeq ? "「リンボ」の効果で、このターンはマホウを使えない。" : (socratesBlocked(G.turn) ? "「ソクラテス」の効果で、このターンはもうマホウ・ハイケイを使えない。" : (mahouPayableCount(G.turn) < mahouCostOf(G.turn, c) ? "魔力コスト分のマリョクが無い（「ルター」がいる間は裏向きをコストにできない）。" : useWhy))));
         }
         const close = document.createElement("button");
         close.textContent = "閉じる";
@@ -9891,7 +10019,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.gameMode === "online" && G.turn !== "P") return; // オンライン：自分のターン以外は操作できない
         if (G.mode === "main"){
           G.mode = "attackSelect"; G.attackers = []; G.selHandUid = null;
-          log("バトル：攻撃するイジンを1体以上タップして選んでね（出たばかりのイジンは選べない）。", "sys");
+          log("バトル：攻撃するイジンを1体以上タップして選ぶ（出たばかりのイジンは選べない）。", "sys");
           renderBattle();
         } else if (G.mode === "attackSelect"){
           if (!G.attackers.length && !(G.arenaSel || []).length){ G.mode = "main"; renderBattle(); return; }
