@@ -66,75 +66,81 @@
       #scr-mode .dive-btn{ display:block; width:100%; margin:22px 0 2px; }
       /* 軍団編成ボタン：Diveボタンと同じ pill 画像ボタン。少し小さくして格の違いを出す */
       #scr-mode .gundan-btn{ display:block; width:88%; margin:16px auto 2px; }
-      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。合計2.5秒・タップでスキップ可） ----------
-         最初から最後まで1本の連続キーフレーム（2.5s）で、暗転→墨のにじみ→多層の霧→
+      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。合計2.2秒・タップでスキップ可） ----------
+         最初から最後まで1本の連続キーフレーム（2.2s）で、暗転→墨のにじみ→多層の霧→
          濃紺へのクロスフェードが継ぎ目なく流れる。段階式のクラス切替はしない。
          霧は素材画像を使わず、絵柄のない白〜薄グレーのぼかしグラデーション層だけで作る。
          同心円リング・中心の強いグロー類は置かない。
-         v3：墨は弱いぼかしから始めて輪郭を長く残し、4か所が異なる方向・速度で広がって合流する。
-         霧は「覆って消える」でなく「谷間を抜ける」動き：手前は先に速く横へ流れ、中間は後半に
-         左右へ開き、奥は少し遅れて開く。全面が濃い plateau は短く、パネルと濃紺は霧の晴れに
-         連動して少しずつ見えてくる。 */
+         v4：霧の「左右に開く」は透明度でなく本物の横移動でやる。奥・中間とも左側の層は画面左端へ、
+         右側の層は画面右端へ transform で大きく（50vw超）流れて画面外へ去り、中央に空間が開いて
+         そこから濃紺とパネルが見えてくる。移動中も不透明度を高めに保ち、「薄くなって消えた」
+         印象にならないようにする。墨は合流直前までの輪郭保持をさらに延ばし、全面が明るい霧に
+         覆われる plateau は v3 より約0.2〜0.3秒短くする（切替点 50%＝1.1秒の濃さは維持）。 */
       #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden; transition:opacity .35s ease, visibility 0s linear .35s; }
       #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .08s ease; }
       #dive-overlay.out{ opacity:0 !important; }
       #dive-overlay > div{ position:absolute; opacity:0; pointer-events:none; }
       /* 暗転層：押した直後からゆっくり暗くなり、霧が晴れるにつれて抜けていく */
       #dive-overlay .dv-dark{ inset:0; background:#04060c; }
-      #dive-overlay.run .dv-dark{ animation:dvDark 2.5s ease-in-out both; }
-      @keyframes dvDark{ 0%{ opacity:0; } 14%{ opacity:.5; } 46%{ opacity:.78; } 72%{ opacity:.4; } 100%{ opacity:0; } }
+      #dive-overlay.run .dv-dark{ animation:dvDark 2.2s ease-in-out both; }
+      @keyframes dvDark{ 0%{ opacity:0; } 13%{ opacity:.5; } 44%{ opacity:.78; } 70%{ opacity:.4; } 100%{ opacity:0; } }
       /* 墨：ボタン中心ではなく離れた4か所から、不規則な輪郭で滲み広がって互いに合流する。
-         v3：ぼかしは弱く（4px）始めて合流が終わる頃にだけ強くし、輪郭がすぐ溶けて塊にならないようにする。
+         v4：ぼかしの立ち上がりをさらに遅らせ（合流点64%でも10px）、明るい霧が重なっても
+         合流の瞬間まで輪郭が追えるようにする。溶け始めるのは76%以降。
          4か所はそれぞれ違う方向（--tx/--ty：中央へ寄る向き）へ違う速度（duration）で広がるので、
          近づいて合流していく過程が目で追える。合流前に画面全体を均一な霧で覆わないよう、霧側の
-         立ち上がりも遅らせてある（下の dvFogBack / dvFogMid 参照）。 */
+         立ち上がりも遅らせてある（下の dvFogBackL/R / dvFogMidL/R 参照）。 */
       .dv-ink{ width:72vmax; height:72vmax; margin:-36vmax 0 0 -36vmax; filter:blur(6px);
         background:radial-gradient(closest-side, rgba(16,19,28,.94) 0%, rgba(20,24,36,.78) 46%, rgba(24,29,42,.4) 72%, rgba(24,29,42,0) 100%); }
       .dv-ink.i1{ left:16%; top:26%; border-radius:58% 42% 63% 37% / 45% 58% 42% 55%; --is:1.25; --ir:-7deg; --tx:6vw; --ty:4vh; }
       .dv-ink.i2{ left:82%; top:18%; border-radius:41% 59% 38% 62% / 60% 40% 57% 43%; --is:1.1; --ir:6deg; --tx:-7vw; --ty:5vh; }
       .dv-ink.i3{ left:26%; top:82%; border-radius:63% 37% 44% 56% / 39% 61% 44% 56%; --is:1.18; --ir:5deg; --tx:5vw; --ty:-6vh; }
       .dv-ink.i4{ left:76%; top:76%; border-radius:47% 53% 59% 41% / 55% 43% 60% 40%; --is:1.32; --ir:-5deg; --tx:-6vw; --ty:-5vh; }
-      #dive-overlay.run .dv-ink{ animation:dvInk 2.45s cubic-bezier(.35,.05,.3,1) both; will-change:transform, opacity, filter; }
-      #dive-overlay.run .dv-ink.i2{ animation-duration:2.25s; animation-delay:.06s; }
-      #dive-overlay.run .dv-ink.i3{ animation-duration:2.42s; animation-delay:.12s; }
-      #dive-overlay.run .dv-ink.i4{ animation-duration:2.36s; animation-delay:.03s; }
+      #dive-overlay.run .dv-ink{ animation:dvInk 2.16s cubic-bezier(.35,.05,.3,1) both; will-change:transform, opacity, filter; }
+      #dive-overlay.run .dv-ink.i2{ animation-duration:1.98s; animation-delay:.06s; }
+      #dive-overlay.run .dv-ink.i3{ animation-duration:2.13s; animation-delay:.12s; }
+      #dive-overlay.run .dv-ink.i4{ animation-duration:2.08s; animation-delay:.03s; }
       @keyframes dvInk{
         0%{ opacity:0; transform:translate(0,0) scale(.1) rotate(0deg); filter:blur(4px); }
         10%{ opacity:.92; }
-        30%{ opacity:.94; transform:translate(calc(var(--tx,0px) * .35), calc(var(--ty,0px) * .35)) scale(calc(var(--is,1.2) * .55)) rotate(calc(var(--ir,0deg) * .4)); filter:blur(6px); }
-        50%{ opacity:.95; transform:translate(calc(var(--tx,0px) * .75), calc(var(--ty,0px) * .75)) scale(calc(var(--is,1.2) * .85)) rotate(calc(var(--ir,0deg) * .75)); filter:blur(10px); }
-        64%{ opacity:.9; transform:translate(var(--tx,0px), var(--ty,0px)) scale(var(--is,1.2)) rotate(var(--ir,0deg)); filter:blur(15px); }
-        82%{ opacity:.45; filter:blur(20px); }
+        30%{ opacity:.94; transform:translate(calc(var(--tx,0px) * .35), calc(var(--ty,0px) * .35)) scale(calc(var(--is,1.2) * .55)) rotate(calc(var(--ir,0deg) * .4)); filter:blur(5px); }
+        50%{ opacity:.95; transform:translate(calc(var(--tx,0px) * .75), calc(var(--ty,0px) * .75)) scale(calc(var(--is,1.2) * .85)) rotate(calc(var(--ir,0deg) * .75)); filter:blur(7px); }
+        64%{ opacity:.94; transform:translate(var(--tx,0px), var(--ty,0px)) scale(var(--is,1.2)) rotate(var(--ir,0deg)); filter:blur(10px); }
+        76%{ opacity:.82; transform:translate(var(--tx,0px), var(--ty,0px)) scale(calc(var(--is,1.2) * 1.08)) rotate(var(--ir,0deg)); filter:blur(14px); }
+        88%{ opacity:.38; filter:blur(19px); }
         100%{ opacity:0; transform:translate(var(--tx,0px), var(--ty,0px)) scale(calc(var(--is,1.2) * 1.3)) rotate(var(--ir,0deg)); filter:blur(24px); }
       }
-      /* 霧：v3は「覆ってから消える」でなく「谷間を抜ける」動きにする。層ごとに時間差と方向を持たせる：
-         手前＝最初に速く横へ流れ去る／中間＝ゆっくり寄ってきて後半に左右へ大きく開く／
-         奥＝立ち上がりもピークも少し遅く、最後に薄く残って抜ける。
-         奥と中間のピーク幅は狭くして、全面がぼやけたままの plateau を短くする
-         （ただし切替点 50%＝1.25秒では奥＋中間で画面がしっかり隠れる濃さは維持する）。 */
+      /* 霧：v4は全層で「薄くなって消える」でなく「実際に横へ流れて画面端へ去る」動きにする。
+         奥＝左右2層に分け、ピーク後は不透明度を保ったまま左層は左端へ・右層は右端へ50vw超移動する。
+         中間＝同じく左右へ54vwまで移動し、移動区間（56%〜82%）でも不透明度を .94→.35 と
+         高めに保つので、流れ去る動きそのものが見える。手前＝従来どおり最初に速く横を抜ける。
+         ピークの幅は奥・中間とも 46%〜56% に絞り、plateau を v3 より約0.2〜0.3秒短くする
+         （ただし切替点 50%＝1.1秒では奥＋中間で画面がしっかり隠れる濃さは維持する）。
+         左右の層が画面端へ去ることで中央に空間が開き、そこから濃紺とパネルが見えてくる。 */
       .dv-fog{ filter:blur(26px); will-change:transform, opacity; }
-      .dv-fog.back{ inset:-18%; background:
-        radial-gradient(60% 50% at 30% 38%, rgba(238,240,244,.95), rgba(238,240,244,0) 70%),
-        radial-gradient(55% 48% at 72% 62%, rgba(226,230,238,.9), rgba(226,230,238,0) 70%),
-        radial-gradient(48% 42% at 55% 20%, rgba(214,219,229,.85), rgba(214,219,229,0) 70%); }
-      #dive-overlay.run .dv-fog.back{ animation:dvFogBack 2.5s ease-in-out both; }
-      @keyframes dvFogBack{ 0%{ opacity:0; transform:translateX(0) scale(1.06); } 14%{ opacity:.12; } 30%{ opacity:.38; } 46%{ opacity:.85; } 54%{ opacity:.97; } 64%{ opacity:.8; } 80%{ opacity:.38; } 100%{ opacity:0; transform:translateX(-1.5%) scale(1.1); } }
+      .dv-fog.back{ top:-16%; bottom:-16%; width:110vw; }
+      .dv-fog.back.b1{ left:-27vw; background:radial-gradient(closest-side, rgba(238,240,244,.96), rgba(238,240,244,0) 72%); }
+      .dv-fog.back.b2{ right:-27vw; background:radial-gradient(closest-side, rgba(226,230,238,.94), rgba(226,230,238,0) 72%); }
+      #dive-overlay.run .dv-fog.back.b1{ animation:dvFogBackL 2.2s ease-in-out both; }
+      #dive-overlay.run .dv-fog.back.b2{ animation:dvFogBackR 2.2s ease-in-out both; }
+      @keyframes dvFogBackL{ 0%{ opacity:0; transform:translateX(5vw) scale(1.04); } 18%{ opacity:.3; } 34%{ opacity:.62; transform:translateX(2vw) scale(1.05); } 46%{ opacity:.92; transform:translateX(0) scale(1.06); } 52%{ opacity:.98; transform:translateX(-2vw) scale(1.07); } 58%{ opacity:.93; transform:translateX(-9vw) scale(1.09); } 70%{ opacity:.68; transform:translateX(-26vw) scale(1.13); } 84%{ opacity:.3; transform:translateX(-42vw) scale(1.18); } 100%{ opacity:0; transform:translateX(-56vw) scale(1.24); } }
+      @keyframes dvFogBackR{ 0%{ opacity:0; transform:translateX(-5vw) scale(1.04); } 18%{ opacity:.3; } 34%{ opacity:.62; transform:translateX(-2vw) scale(1.05); } 46%{ opacity:.92; transform:translateX(0) scale(1.06); } 52%{ opacity:.98; transform:translateX(2vw) scale(1.07); } 58%{ opacity:.93; transform:translateX(9vw) scale(1.09); } 70%{ opacity:.68; transform:translateX(26vw) scale(1.13); } 84%{ opacity:.3; transform:translateX(42vw) scale(1.18); } 100%{ opacity:0; transform:translateX(56vw) scale(1.24); } }
       .dv-fog.mid{ top:-16%; bottom:-16%; width:96vw; }
       .dv-fog.mid.m1{ left:-30vw; background:radial-gradient(closest-side, rgba(240,242,246,.95), rgba(240,242,246,0) 72%); }
       .dv-fog.mid.m2{ right:-30vw; background:radial-gradient(closest-side, rgba(233,236,242,.95), rgba(233,236,242,0) 72%); }
-      #dive-overlay.run .dv-fog.mid.m1{ animation:dvFogMidL 2.5s ease-in-out both; }
-      #dive-overlay.run .dv-fog.mid.m2{ animation:dvFogMidR 2.5s ease-in-out both; }
-      @keyframes dvFogMidL{ 0%{ opacity:0; transform:translateX(7vw) scale(1); } 20%{ opacity:.4; } 40%{ opacity:.85; transform:translateX(3vw) scale(1.03); } 52%{ opacity:.96; transform:translateX(0) scale(1.05); } 62%{ opacity:.88; transform:translateX(-6vw) scale(1.08); } 78%{ opacity:.45; transform:translateX(-18vw) scale(1.14); } 100%{ opacity:0; transform:translateX(-32vw) scale(1.24); } }
-      @keyframes dvFogMidR{ 0%{ opacity:0; transform:translateX(-7vw) scale(1); } 20%{ opacity:.4; } 40%{ opacity:.85; transform:translateX(-3vw) scale(1.03); } 52%{ opacity:.96; transform:translateX(0) scale(1.05); } 62%{ opacity:.88; transform:translateX(6vw) scale(1.08); } 78%{ opacity:.45; transform:translateX(18vw) scale(1.14); } 100%{ opacity:0; transform:translateX(32vw) scale(1.24); } }
+      #dive-overlay.run .dv-fog.mid.m1{ animation:dvFogMidL 2.2s ease-in-out both; }
+      #dive-overlay.run .dv-fog.mid.m2{ animation:dvFogMidR 2.2s ease-in-out both; }
+      @keyframes dvFogMidL{ 0%{ opacity:0; transform:translateX(6vw) scale(1); } 16%{ opacity:.35; } 32%{ opacity:.7; transform:translateX(3vw) scale(1.02); } 44%{ opacity:.9; transform:translateX(1vw) scale(1.04); } 50%{ opacity:.97; transform:translateX(0) scale(1.05); } 56%{ opacity:.94; transform:translateX(-8vw) scale(1.07); } 68%{ opacity:.74; transform:translateX(-22vw) scale(1.11); } 82%{ opacity:.36; transform:translateX(-38vw) scale(1.16); } 100%{ opacity:0; transform:translateX(-54vw) scale(1.22); } }
+      @keyframes dvFogMidR{ 0%{ opacity:0; transform:translateX(-6vw) scale(1); } 16%{ opacity:.35; } 32%{ opacity:.7; transform:translateX(-3vw) scale(1.02); } 44%{ opacity:.9; transform:translateX(-1vw) scale(1.04); } 50%{ opacity:.97; transform:translateX(0) scale(1.05); } 56%{ opacity:.94; transform:translateX(8vw) scale(1.07); } 68%{ opacity:.74; transform:translateX(22vw) scale(1.11); } 82%{ opacity:.36; transform:translateX(38vw) scale(1.16); } 100%{ opacity:0; transform:translateX(54vw) scale(1.22); } }
       .dv-fog.front{ left:-25vw; right:-25vw; top:34%; height:52%; filter:blur(20px);
         background:radial-gradient(58% 90% at 50% 50%, rgba(244,245,248,.8), rgba(244,245,248,0) 70%); }
-      #dive-overlay.run .dv-fog.front{ animation:dvFogFront 2.5s ease-in-out both; }
-      @keyframes dvFogFront{ 0%{ opacity:0; transform:translateX(-42vw); } 14%{ opacity:.75; } 30%{ opacity:.8; transform:translateX(-6vw); } 48%{ opacity:.45; transform:translateX(16vw); } 66%{ opacity:.12; transform:translateX(32vw); } 84%{ opacity:0; transform:translateX(42vw); } 100%{ opacity:0; transform:translateX(46vw); } }
-      /* 晴れ際の濃紺クロスフェード：霧が薄くなる量に連動して少しずつ濃紺が透ける（フラットなグレーで止まらない）。
-         立ち上がりは霧の減少が始まる 54% 以降に合わせ、ピークは晴れの途中に置く */
+      #dive-overlay.run .dv-fog.front{ animation:dvFogFront 2.2s ease-in-out both; }
+      @keyframes dvFogFront{ 0%{ opacity:0; transform:translateX(-46vw); } 12%{ opacity:.75; } 26%{ opacity:.8; transform:translateX(-8vw); } 42%{ opacity:.5; transform:translateX(14vw); } 58%{ opacity:.15; transform:translateX(30vw); } 72%{ opacity:0; transform:translateX(40vw); } 100%{ opacity:0; transform:translateX(44vw); } }
+      /* 晴れ際の濃紺クロスフェード：霧が左右へ開く量に連動して少しずつ濃紺が透ける（フラットなグレーで止まらない）。
+         立ち上がりは霧が開き始める 52% 以降に合わせ、ピークは晴れの途中に置く */
       #dive-overlay .dv-reveal{ inset:0; background:linear-gradient(180deg, #0a0e1a 0, #0d1220 300px, #111830 100%); }
-      #dive-overlay.run .dv-reveal{ animation:dvReveal 2.5s ease-in-out both; }
-      @keyframes dvReveal{ 0%,50%{ opacity:0; } 62%{ opacity:.28; } 76%{ opacity:.55; } 90%{ opacity:.25; } 100%{ opacity:0; } }
+      #dive-overlay.run .dv-reveal{ animation:dvReveal 2.2s ease-in-out both; }
+      @keyframes dvReveal{ 0%,48%{ opacity:0; } 60%{ opacity:.3; } 74%{ opacity:.55; } 88%{ opacity:.25; } 100%{ opacity:0; } }
       /* ボタンの沈み込み（押した感触） */
       .logo-btn.dive-press{ animation:dvPress .45s ease both; }
       @keyframes dvPress{ 0%{ transform:scale(1); } 35%{ transform:scale(.965) translateY(2px); } 100%{ transform:scale(.985) translateY(1px); } }
@@ -5886,10 +5892,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBuilder();
         show("scr-build");
       }
-      /* ダイブ演出：タイトル→デッキ選択の入口だけ。合計2.5秒・1本の連続アニメーション。
+      /* ダイブ演出：タイトル→デッキ選択の入口だけ。合計2.2秒・1本の連続アニメーション。
          ボタンがわずかに沈み、画面が自然に暗転し、離れた4か所から墨が弱いぼかしのまま
-         異なる方向・速度で滲み広がって合流する（v3）。霧は手前が先に速く横へ流れ、中間が
-         後半に左右へ開き、奥が少し遅れて開く「谷間を抜ける」動き。一番濃い約1.25秒の時点で
+         異なる方向・速度で滲み広がって合流する（合流直前まで輪郭を保持）。霧は全層が実際に
+         左右へ大きく横移動して画面端へ流れ去り（奥・中間は左右2層がそれぞれ50vw超）、中央に
+         空間が開いて濃紺とパネルが見えてくる「谷間を抜ける」動き。一番濃い約1.1秒の時点で
          裏側の画面を切り替え、霧が晴れる量に連動して濃紺とパネルが少しずつ見え、
          5色タイル（約120ms差）→保存デッキ欄・次への順に現れる。
          タップでスキップ可。動きを減らす設定では即時遷移する。 */
@@ -5909,10 +5916,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         btn.classList.add("dive-press");
         ov.classList.add("on");
         requestAnimationFrame(function(){ requestAnimationFrame(function(){ if (!diveFinished) ov.classList.add("run"); }); });
-        /* 約1.25秒：霧が一番濃い瞬間に裏で画面を切り替える（素の画面は見えない） */
-        diveTimers.push(setTimeout(function(){ if (!diveSwitched){ diveSwitched = true; go(false); } }, 1250));
-        /* 2.5秒：全層が消え切ったところでオーバーレイを外す（見た目は変わらない） */
-        diveTimers.push(setTimeout(function(){ diveFinished = true; diveCleanup(); }, 2580));
+        /* 約1.1秒：霧が一番濃い瞬間に裏で画面を切り替える（素の画面は見えない） */
+        diveTimers.push(setTimeout(function(){ if (!diveSwitched){ diveSwitched = true; go(false); } }, 1100));
+        /* 2.2秒：全層が流れ去ったところでオーバーレイを外す（見た目は変わらない） */
+        diveTimers.push(setTimeout(function(){ diveFinished = true; diveCleanup(); }, 2280));
         ov.onclick = function(){
           if (diveFinished) return;
           if (!diveSwitched){ diveSwitched = true; go(true); }
@@ -10435,7 +10442,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       })();
     </script>
     <!-- ダイブ演出用オーバーレイ（タイトル→色選択の遷移でのみ使う） -->
-    <div id="dive-overlay" aria-hidden="true"><div class="dv-dark"></div><div class="dv-ink i1"></div><div class="dv-ink i2"></div><div class="dv-ink i3"></div><div class="dv-ink i4"></div><div class="dv-fog back"></div><div class="dv-fog mid m1"></div><div class="dv-fog mid m2"></div><div class="dv-fog front"></div><div class="dv-reveal"></div></div>
+    <div id="dive-overlay" aria-hidden="true"><div class="dv-dark"></div><div class="dv-ink i1"></div><div class="dv-ink i2"></div><div class="dv-ink i3"></div><div class="dv-ink i4"></div><div class="dv-fog back b1"></div><div class="dv-fog back b2"></div><div class="dv-fog mid m1"></div><div class="dv-fog mid m2"></div><div class="dv-fog front"></div><div class="dv-reveal"></div></div>
     <!-- デッキ選択画面の端にだけ薄く漂い続ける霧（遷移後の余韻） -->
     <div id="deck-ambient" aria-hidden="true"><div class="amb a1"></div><div class="amb a2"></div><div class="amb a3"></div></div>
   </body>
