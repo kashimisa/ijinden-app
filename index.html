@@ -329,13 +329,16 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-      /* 対戦開始イントロ（合計約3秒）：レイヤーは「土台＋霧の層×6＋ロゴ」に分ける。
+      /* 対戦開始イントロ（合計約3秒）：レイヤーは「土台＋霧の層×8＋ロゴ」に分ける。
          ①土台＝真っ黒な下地（.di-base）。霧が薄くなった所から盤面が透けて見えるよう、散布の途中で静かに消える
-         ②霧＝ロゴなしの水墨素材（assets/dive_fogbg.jpg）の切り抜きを6層重ねる。各層は切り抜き位置・拡大率・
-           反転・ぼかし量が違い、縁は放射マスクで霞ませるので長方形の継ぎ目やパネルは一切見えない。
-           晴れる時は層ごとに違う速さ・違う距離でふわっと左右へ流れながら薄くなっていく（奥行きのある散り方）
-         ③ロゴ＝透過済みの assets/callout_dive.png を別レイヤーで中央にクローズアップ表示。位置も形も変えず、
-           割らない・ぼかさない・動かさない。約1.2秒かけて金の光がふわっと灯って戻り、霧が散り終わる直前に消える
+         ②霧＝ロゴなしの水墨素材（assets/dive_fogbg.jpg）の切り抜きを8層重ねる。左側の層は左へ・右側の層は右へ、
+           左右ペアで距離・速さ・ぼかしを揃えた完全対称にし、中央の層はその場で大きく膨らんで溶ける。
+           晴れる時は各層が膨らみ（ぼわっと広がり）・ぼかしが増し・ほんのり明るくなりながら両側へ散るので、
+           中央が開いて盤面が抜けて見える「雲の谷間を抜ける」散り方になる。縁は放射マスクで霞ませるので
+           長方形の継ぎ目やパネルは一切見えない
+         ③ロゴ＝透過済みの assets/callout_dive.png を別レイヤーで中央表示。割らない・ぼかさない。
+           最初は小さめに出て、ゆっくりなめらかに大きくなり、一番大きくなったところでほんのり金に光って、
+           そのままスッと消える（高級感のある、弾まない動き）
          「始める」を押したら即座に表示する。終わったあと中央に光や残像は一切残らない */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
@@ -346,41 +349,50 @@
       .di-base{ position:absolute; inset:0; background:#050506; opacity:1; transition:opacity 1.1s ease .3s; }
       .dive-intro.clear .di-base{ opacity:0; }
       /* 霧の層：画面より一回り大きく敷き、縁は放射マスクで霞ませる（長方形の輪郭・継ぎ目を見せない）。
-         静止時の個性（拡大・左右反転・ぼかし）は transform / filter に、散る動きは translate プロパティに分けることで、
-         層ごとの個性を保ったまま全層で同じキーフレームを使える。散る方向・距離・速さは層ごとに変数で変える */
+         マスクの中心（--mx）は層の担当側へ寄せ、左の層は左・右の層は右を厚く覆う。
+         静止時の個性（拡大・左右反転・ぼかし）は transform / filter に、散る動きは translate / scale プロパティに
+         分けることで、層ごとの個性を保ったまま全層で同じキーフレームを使える。
+         散る方向・距離・速さ・膨らみ量は層ごとに変数で変える。左右ペア（f1/f2、f3/f4、f5/f6）は
+         距離・速さ・ぼかし・膨らみを完全に揃えてあるので、全体が片側へ寄って見えることはない */
       .di-fog{ position:absolute; inset:-14%; opacity:0; pointer-events:none;
         background-image:url("assets/dive_fogbg.jpg"); background-size:cover; background-repeat:no-repeat;
-        -webkit-mask-image:radial-gradient(115% 88% at 50% 50%, #000 58%, transparent 97%);
-        mask-image:radial-gradient(115% 88% at 50% 50%, #000 58%, transparent 97%);
-        will-change:translate, opacity, filter; }
+        -webkit-mask-image:radial-gradient(118% 90% at var(--mx,50%) 50%, #000 58%, transparent 97%);
+        mask-image:radial-gradient(118% 90% at var(--mx,50%) 50%, #000 58%, transparent 97%);
+        will-change:translate, scale, opacity, filter; }
       .dive-intro.on .di-fog{ opacity:1; }
-      .di-fog.f1{ background-position:32% 38%; transform:scale(1.28); filter:blur(5px); --drift:-34vw; --driftY:-2vh; --blur:5px; --dur:1.65s; --delay:0s; }
-      .di-fog.f2{ background-position:68% 62%; transform:scaleX(-1) scale(1.12); filter:blur(3px); --drift:30vw; --driftY:2.5vh; --blur:3px; --dur:1.55s; --delay:.05s; }
-      .di-fog.f3{ background-position:50% 26%; transform:scale(1.5); filter:blur(8px); --drift:-26vw; --driftY:1.5vh; --blur:8px; --dur:1.5s; --delay:.1s; }
-      .di-fog.f4{ background-position:22% 72%; transform:scaleX(-1) scale(1.34); filter:blur(2px); --drift:38vw; --driftY:-2vh; --blur:2px; --dur:1.6s; --delay:.08s; }
-      .di-fog.f5{ background-position:78% 22%; transform:scale(1.06); filter:blur(4px); --drift:-44vw; --driftY:3vh; --blur:4px; --dur:1.42s; --delay:.13s; }
-      .di-fog.f6{ background-position:50% 54%; transform:scale(1.2); filter:blur(1.5px); --drift:48vw; --driftY:-3vh; --blur:1.5px; --dur:1.35s; --delay:.15s; }
-      .dive-intro.clear .di-fog{ animation:diFogDrift var(--dur,1.5s) cubic-bezier(.33,0,.3,1) var(--delay,0s) forwards; }
+      /* 奥の層（ペア）：ゆっくり大きく流れながら散る */
+      .di-fog.f1{ background-position:30% 40%; transform:scale(1.5); filter:blur(8px); --mx:36%; --drift:-52vw; --driftY:-3vh; --blur:8px; --swell:1.12; --dur:1.7s; --delay:0s; }
+      .di-fog.f2{ background-position:70% 40%; transform:scaleX(-1) scale(1.5); filter:blur(8px); --mx:64%; --drift:52vw; --driftY:-3vh; --blur:8px; --swell:1.12; --dur:1.7s; --delay:0s; }
+      /* 中の層（ペア） */
+      .di-fog.f3{ background-position:24% 66%; transform:scale(1.3); filter:blur(4px); --mx:32%; --drift:-60vw; --driftY:2vh; --blur:4px; --swell:1.18; --dur:1.55s; --delay:.06s; }
+      .di-fog.f4{ background-position:76% 66%; transform:scaleX(-1) scale(1.3); filter:blur(4px); --mx:68%; --drift:60vw; --driftY:2vh; --blur:4px; --swell:1.18; --dur:1.55s; --delay:.06s; }
+      /* 手前の層（ペア）：一番シャープで一番遠くへはける */
+      .di-fog.f5{ background-position:18% 30%; transform:scale(1.12); filter:blur(2px); --mx:28%; --drift:-70vw; --driftY:-2vh; --blur:2px; --swell:1.22; --dur:1.42s; --delay:.1s; }
+      .di-fog.f6{ background-position:82% 30%; transform:scaleX(-1) scale(1.12); filter:blur(2px); --mx:72%; --drift:70vw; --driftY:-2vh; --blur:2px; --swell:1.22; --dur:1.42s; --delay:.1s; }
+      /* 中央の層：横へは流れず、その場で大きく膨らんで溶ける。ここが先に開くことで「谷間」ができる */
+      .di-fog.f7{ background-position:50% 52%; transform:scale(1.22); filter:blur(5px); --mx:50%; --drift:-7vw; --driftY:-5vh; --blur:5px; --swell:1.38; --dur:1.3s; --delay:0s; }
+      .di-fog.f8{ background-position:50% 22%; transform:scaleX(-1) scale(1.42); filter:blur(9px); --mx:50%; --drift:6vw; --driftY:-6vh; --blur:9px; --swell:1.3; --dur:1.38s; --delay:.04s; }
+      .dive-intro.clear .di-fog{ animation:diFogDrift var(--dur,1.5s) cubic-bezier(.4,.02,.25,1) var(--delay,0s) forwards; }
       @keyframes diFogDrift{
-        0%{ translate:0 0; opacity:1; filter:blur(var(--blur,3px)); }
-        55%{ opacity:.6; }
-        100%{ translate:var(--drift,40vw) var(--driftY,-2vh); opacity:0; filter:blur(calc(var(--blur,3px) + 7px)); }
+        0%{ translate:0 0; scale:1; opacity:1; filter:blur(var(--blur,3px)) brightness(1); }
+        45%{ opacity:.72; }
+        100%{ translate:var(--drift,40vw) var(--driftY,-2vh); scale:var(--swell,1.15); opacity:0; filter:blur(calc(var(--blur,3px) + 11px)) brightness(1.14); }
       }
-      /* ロゴ（別レイヤー）：クローズアップで大きく即表示。位置・形は一切変えず、ぼかしもかけない。
-         約1.2秒かけて金の光がふわっと灯って元に戻る（光はロゴの形に沿うドロップシャドウのみで、
-         アニメーションが終われば filter は素に戻るので中央に光は残らない）。霧が散り終わる直前
-         （.logo-out）に不透明度だけで静かに消える */
+      /* ロゴ（別レイヤー）：割らない・ぼかさない。最初は小さめ（0.68倍）に出て、約1.3秒かけて
+         ゆっくりなめらかに等倍まで大きくなり（バネのような弾みは付けない）、一番大きくなった
+         ところで金の光がほんのり灯って静かに戻る（光はロゴの形に沿うドロップシャドウのみ）。
+         その後は霧が散り終わる直前（.logo-out）に不透明度だけでスッと消える。中央に光は残らない */
       .di-logo{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%);
-        width:min(112vw, 720px); opacity:0; transition:opacity .12s ease; pointer-events:none; }
+        width:min(112vw, 720px); opacity:0; transition:opacity .12s ease; pointer-events:none; will-change:transform, filter; }
       .dive-intro.on .di-logo{ opacity:1; }
-      .dive-intro.on:not(.cover) .di-logo{ animation:diLogoGlow 1.2s ease-out both; }
-      @keyframes diLogoGlow{
-        0%{ filter:brightness(1); }
-        35%{ filter:brightness(1.55) drop-shadow(0 0 20px rgba(238,205,120,.85)) drop-shadow(0 0 54px rgba(238,205,120,.38)); }
-        70%{ filter:brightness(1.24) drop-shadow(0 0 10px rgba(238,205,120,.4)); }
-        100%{ filter:brightness(1); }
+      .dive-intro.on:not(.cover) .di-logo{ animation:diLogoGrow 2.05s cubic-bezier(.3,.55,.25,1) both; }
+      @keyframes diLogoGrow{
+        0%{ transform:translate(-50%,-50%) scale(.68); filter:brightness(1); }
+        58%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1.05); }
+        76%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1.38) drop-shadow(0 0 18px rgba(238,205,120,.7)) drop-shadow(0 0 48px rgba(238,205,120,.3)); }
+        100%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1.1) drop-shadow(0 0 7px rgba(238,205,120,.22)); }
       }
-      .dive-intro.logo-out .di-logo{ opacity:0; transition:opacity .5s ease; }
+      .dive-intro.logo-out .di-logo{ opacity:0; transition:opacity .55s ease; }
       /* 盤面フラッシュ防止の「先覆い」：対戦開始の処理が盤面を表示するより先に、この状態で画面を真っ黒に覆っておく。
          transitionを切って即座に不透明にし、背景とロゴはまだ出さない（playDiveIntro が cover を外した瞬間に即表示される） */
       .dive-intro.cover{ transition:none !important; opacity:1 !important; visibility:visible; }
@@ -1154,10 +1166,11 @@
           <div class="callout-sub" id="callout-sub"></div>
         </div>
 
-        <!-- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（.di-fog×6）が即座に表示され、
-             その上に透過ロゴ（.di-logo）をクローズアップで重ねる→ロゴが約1.2秒光る→霧の層だけが層ごとに違う速さで
-             ふわっと左右へ散って盤面が見える→ロゴは最後に静かに消える→ターンバナー（タップでスキップ可）。
-             ロゴは動かさない・割らない・ぼかさない。中央に光や残像を残す要素は置かない -->
+        <!-- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（.di-fog×8）が即座に表示され、
+             その上に透過ロゴ（.di-logo）を重ねる→ロゴが小さめからゆっくり大きくなり、最大でほんのり光る→
+             霧の層だけが左右対称にぼわっと両側へ散り（中央の層は膨らんで溶け）盤面が見える→ロゴは最後に
+             スッと消える→ターンバナー（タップでスキップ可）。ロゴは割らない・ぼかさない。
+             中央に光や残像を残す要素は置かない -->
         <div class="dive-intro" id="dive-intro" aria-hidden="true">
           <div class="di-base"></div>
           <div class="di-fog f1" aria-hidden="true"></div>
@@ -1166,6 +1179,8 @@
           <div class="di-fog f4" aria-hidden="true"></div>
           <div class="di-fog f5" aria-hidden="true"></div>
           <div class="di-fog f6" aria-hidden="true"></div>
+          <div class="di-fog f7" aria-hidden="true"></div>
+          <div class="di-fog f8" aria-hidden="true"></div>
           <img class="di-logo" src="assets/callout_dive.png" alt="Dive to イジンデン" />
         </div>
 
@@ -6498,10 +6513,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
         }
       }
-      /* ---- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（6層）と、別レイヤーの透過ロゴが
-         押した瞬間に即表示される。ロゴはクローズアップで約1.2秒かけて光ってから、そのままの姿で静かに消える
-         （動かさない・割らない・ぼかさない）。霧は1枚絵の分割ではなく層ごとに違う速さでふわっと左右へ散りながら
-         薄くなっていき（約1.8秒）、散り終わると盤面が見える。終わったあと中央に光や残像は一切残らない。
+      /* ---- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（8層）と、別レイヤーの透過ロゴが
+         押した瞬間に即表示される。ロゴは小さめからゆっくりなめらかに大きくなり、一番大きくなったところで
+         ほんのり光って、そのままスッと消える（割らない・ぼかさない）。霧は1枚絵の分割ではなく、左の層は左へ・
+         右の層は右へ（左右対称）、中央の層は膨らんで溶けることで中央が開くようにぼわっと散っていき（約1.8秒）、
+         散り終わると盤面が見える。終わったあと中央に光や残像は一切残らない。
          その後 opts.next のターンバナーへつなぐ。タップでスキップ可。
          完了を待てるようPromiseを返す（オンライン対戦のゲスト再演用） ---- */
       let diveIntroTimers = [], diveIntroResolve = null, diveIntroPhase = 2;
