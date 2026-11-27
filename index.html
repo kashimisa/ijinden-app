@@ -11,6 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
     <!-- 対戦開始イントロの墨雲画像はページ読み込み時に先読みし、「始める」を押した瞬間に表示できるようにする -->
     <link rel="preload" as="image" href="assets/dive_fogbg.jpg" />
+    <!-- 決着演出の書画像も先読みし、決着の瞬間に間を置かず表示できるようにする -->
+    <link rel="preload" as="image" href="assets/callout_win.png" />
+    <link rel="preload" as="image" href="assets/callout_lose.png" />
     <style>
       :root{
         color-scheme: light dark;
@@ -468,6 +471,97 @@
         .dive-intro.clear .di-fog{ animation:diFogFade .5s ease forwards; }
       }
       @keyframes diFogFade{ from{ opacity:1; } to{ opacity:0; } }
+      /* 決着演出（勝敗共通・合計約2秒）：決着の瞬間、盤面が暗転し、書道風の「勝利／敗北」が
+         小さめからズバッと拡大して決まる。その背後では光条が放射状に広がり、粒子が舞う。
+         勝利＝金の光条＋金粉、敗北＝墨色の光条＋舞い落ちる木の葉で、派手さは同格に揃える。
+         終わったあと光や残像は一切残さず、結果パネルが下からスッと出てくる。タップでスキップ可 */
+      .result-intro{
+        position:fixed; inset:0; z-index:95; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
+        transition:opacity .32s ease, visibility 0s linear .32s;
+      }
+      .result-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .15s ease; }
+      /* 暗転ベール：中央だけほんのり色味を残し、周囲を落とす（勝利＝温かい金、敗北＝冷たい墨） */
+      .ri-veil{ position:absolute; inset:0; opacity:0; transition:opacity .4s ease; }
+      .result-intro.on .ri-veil{ opacity:1; }
+      .result-intro.win .ri-veil{ background:radial-gradient(95% 75% at 50% 42%, rgba(58,40,8,.52), rgba(5,5,8,.9) 78%); }
+      .result-intro.lose .ri-veil{ background:radial-gradient(95% 75% at 50% 42%, rgba(18,24,42,.58), rgba(3,4,8,.93) 78%); }
+      /* 光条：放射状の筋がゆっくり回りながら広がり、ピークを過ぎたら消える。色と回転方向だけ勝敗で変える */
+      .ri-rays{ position:absolute; left:50%; top:42%; width:175vmax; height:175vmax; opacity:0; pointer-events:none;
+        transform:translate(-50%,-50%);
+        -webkit-mask-image:radial-gradient(circle, #000 0%, transparent 60%); mask-image:radial-gradient(circle, #000 0%, transparent 60%);
+        will-change:transform, opacity; }
+      .result-intro.win .ri-rays{ background:repeating-conic-gradient(from 0deg, rgba(255,206,92,.22) 0deg 5deg, transparent 5deg 13deg); }
+      .result-intro.lose .ri-rays{ background:repeating-conic-gradient(from 0deg, rgba(150,166,200,.15) 0deg 7deg, transparent 7deg 16deg); }
+      .result-intro.win.on .ri-rays{ animation:riRaysWin 2.1s ease-out both; }
+      .result-intro.lose.on .ri-rays{ animation:riRaysLose 2.1s ease-out both; }
+      @keyframes riRaysWin{
+        0%{ opacity:0; transform:translate(-50%,-50%) rotate(-7deg) scale(.68); }
+        22%{ opacity:.95; }
+        58%{ opacity:.7; }
+        100%{ opacity:0; transform:translate(-50%,-50%) rotate(7deg) scale(1.14); }
+      }
+      @keyframes riRaysLose{
+        0%{ opacity:0; transform:translate(-50%,-50%) rotate(6deg) scale(.72); }
+        25%{ opacity:.85; }
+        60%{ opacity:.6; }
+        100%{ opacity:0; transform:translate(-50%,-50%) rotate(-7deg) scale(1.06); }
+      }
+      /* 粒子：勝利＝金粉が中心から四方へ舞い、敗北＝木の葉が画面の上から揺れながら舞い落ちる
+         （位置・大きさ・飛距離・遅延は JS が粒子ごとに付ける） */
+      .ri-parts{ position:absolute; inset:0; pointer-events:none; }
+      .ri-p{ position:absolute; left:var(--x); top:var(--y); width:var(--s); height:var(--s); opacity:0; will-change:transform, opacity; }
+      .result-intro.win .ri-p{ border-radius:50%; background:radial-gradient(circle at 35% 35%, #fff3c4, #f5b921 68%, rgba(245,185,33,0)); box-shadow:0 0 7px rgba(255,196,64,.85); }
+      .result-intro.win.on .ri-p{ animation:riDust var(--t,1.4s) ease-out var(--d,0s) both; }
+      @keyframes riDust{
+        0%{ opacity:0; transform:translate(0,0) scale(.35); }
+        16%{ opacity:1; }
+        100%{ opacity:0; transform:translate(var(--dx), var(--dy)) scale(1); }
+      }
+      .result-intro.lose .ri-p{ border-radius:85% 0 85% 0; background:linear-gradient(135deg, #93a1ba, #454f68); box-shadow:0 0 4px rgba(10,12,20,.35); }
+      .result-intro.lose.on .ri-p{ animation:riLeaf var(--t,1.9s) ease-in var(--d,0s) both; }
+      @keyframes riLeaf{
+        0%{ opacity:0; transform:translate(0,-5vh) rotate(0deg); }
+        12%{ opacity:.95; }
+        34%{ transform:translate(calc(var(--dx) * .3 + 16px), calc(var(--dy) * .36)) rotate(calc(var(--r) * .38)); }
+        66%{ transform:translate(calc(var(--dx) * .68 - 14px), calc(var(--dy) * .7)) rotate(calc(var(--r) * .72)); }
+        88%{ opacity:.75; }
+        100%{ opacity:0; transform:translate(var(--dx), var(--dy)) rotate(var(--r)); }
+      }
+      /* 書：勝利＝小さめからズバッと拡大し、ピークで金にほんのり光って決まる。
+         敗北＝上から重く落ちて決まり、着地でごく小さく震えてから静かに沈む。どちらも最後はスッと消える */
+      .ri-logo{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%);
+        width:min(118vw, 700px); opacity:0; pointer-events:none; will-change:transform, filter, opacity; }
+      .result-intro.win.on .ri-logo{ animation:riLogoWin 2.05s cubic-bezier(.22,.75,.3,1) both; }
+      @keyframes riLogoWin{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.42); filter:brightness(1); }
+        9%{ opacity:1; }
+        33%{ transform:translate(-50%,-50%) scale(1.06); filter:brightness(1.14) drop-shadow(0 0 22px rgba(255,196,64,.8)) drop-shadow(0 0 62px rgba(255,170,30,.38)); }
+        45%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1.06) drop-shadow(0 0 12px rgba(255,196,64,.45)); }
+        78%{ opacity:1; transform:translate(-50%,-50%) scale(1.015); filter:brightness(1.02) drop-shadow(0 0 6px rgba(255,196,64,.25)); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); filter:brightness(1); }
+      }
+      .result-intro.lose.on .ri-logo{ animation:riLogoLose 2.05s cubic-bezier(.22,.75,.3,1) both; }
+      @keyframes riLogoLose{
+        0%{ opacity:0; transform:translate(-50%,-56%) scale(.58); filter:brightness(.88); }
+        11%{ opacity:1; }
+        31%{ transform:translate(-50%,-49%) scale(1.02); filter:brightness(1.03) drop-shadow(0 0 16px rgba(150,172,224,.55)) drop-shadow(0 0 44px rgba(110,130,180,.3)); }
+        37%{ transform:translate(-50%,-49.5%) scale(1.008); }
+        43%{ transform:translate(-50%,-49.1%) scale(1.014); }
+        52%{ transform:translate(-50%,-49.3%) scale(1); filter:brightness(.97) drop-shadow(0 0 8px rgba(150,172,224,.3)); }
+        80%{ opacity:1; transform:translate(-50%,-48.8%) scale(1); filter:brightness(.93); }
+        100%{ opacity:0; transform:translate(-50%,-47.6%) scale(.995); filter:brightness(.9); }
+      }
+      @media (prefers-reduced-motion: reduce){
+        .result-intro.win.on .ri-logo, .result-intro.lose.on .ri-logo{ animation:riLogoFade 1s ease both; }
+        .result-intro.win.on .ri-rays, .result-intro.lose.on .ri-rays, .result-intro.win.on .ri-p, .result-intro.lose.on .ri-p{ animation:none; opacity:0; }
+      }
+      @keyframes riLogoFade{ 0%{ opacity:0; } 18%{ opacity:1; } 78%{ opacity:1; } 100%{ opacity:0; } }
+      /* 結果パネルは演出のあと、下からスッと出る */
+      #overlay-result.on .result-card{ animation:resultCardUp .5s cubic-bezier(.25,.8,.3,1) both; }
+      @keyframes resultCardUp{ from{ opacity:0; transform:translateY(48px); } to{ opacity:1; transform:translateY(0); } }
+      @media (prefers-reduced-motion: reduce){
+        #overlay-result.on .result-card{ animation:none; }
+      }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
       .pile .ptap{ font-size:.52rem; color:var(--gold); font-weight:800; letter-spacing:.06em; }
@@ -1377,6 +1471,16 @@
           <div class="di-fog f7" aria-hidden="true"></div>
           <div class="di-fog f8" aria-hidden="true"></div>
           <img class="di-logo" src="assets/callout_dive.png" alt="Dive to イジンデン" />
+        </div>
+
+        <!-- 決着演出（勝敗共通・合計約2秒）：暗転ベールの上に光条と粒子を重ね、中央の書（勝利／敗北）が
+             ズバッと拡大して決まる→スッと消える→結果パネルが下から出る。タップでスキップ可。
+             書の画像・光条の色・粒子の種類は JS が勝敗で切り替える（.win / .lose） -->
+        <div class="result-intro" id="result-intro" aria-hidden="true">
+          <div class="ri-veil"></div>
+          <div class="ri-rays" aria-hidden="true"></div>
+          <div class="ri-parts" id="ri-parts" aria-hidden="true"></div>
+          <img class="ri-logo" id="ri-logo" src="assets/callout_win.png" alt="" />
         </div>
 
         <!-- opponent side (CPU / プレイヤー2): mat rotated 180°, zones mirrored -->
@@ -9528,6 +9632,63 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         else { if (!G.skipEndPhase) await endPhaseTriggers(atkKey); G.skipEndPhase = false; if (G.over) return; beginTurn(defKey, false); }
       }
 
+      /* ---- 決着演出：勝敗どちらも約2秒の本演出を挟んでから結果パネルを出す ----
+         勝利＝金の光条＋金粉が舞う、敗北＝墨色の光条＋木の葉が舞い落ちる（派手さは同格）。
+         タップでスキップできる。演出が終わるまで結果パネルは出さない */
+      let resultIntroTimers = [];
+      function playResultIntro(isWinArt, showPanel){
+        const ov = $("result-intro"), logo = $("ri-logo"), parts = $("ri-parts");
+        if (!ov || !logo || !parts){ showPanel(); return; }
+        resultIntroTimers.forEach(clearTimeout); resultIntroTimers = [];
+        ov.onclick = null;
+        ov.classList.remove("on", "win", "lose");
+        logo.src = isWinArt ? "assets/callout_win.png" : "assets/callout_lose.png";
+        parts.innerHTML = "";
+        const rnd = Math.random;
+        for (let i = 0; i < 20; i++){
+          const p = document.createElement("i");
+          p.className = "ri-p";
+          if (isWinArt){
+            /* 金粉：書の周りから四方へ舞い上がる */
+            p.style.setProperty("--x", (38 + rnd() * 24) + "%");
+            p.style.setProperty("--y", (33 + rnd() * 17) + "%");
+            p.style.setProperty("--s", (4 + rnd() * 5.5).toFixed(1) + "px");
+            p.style.setProperty("--dx", ((rnd() * 76) - 38).toFixed(1) + "vw");
+            p.style.setProperty("--dy", ((rnd() * 46) - 34).toFixed(1) + "vh");
+            p.style.setProperty("--t", (1.1 + rnd() * 0.7).toFixed(2) + "s");
+            p.style.setProperty("--d", (0.05 + rnd() * 0.4).toFixed(2) + "s");
+          } else {
+            /* 木の葉：画面の上から揺れながら舞い落ちる */
+            p.style.setProperty("--x", (2 + rnd() * 96) + "%");
+            p.style.setProperty("--y", (-3 + rnd() * 12) + "%");
+            p.style.setProperty("--s", (7 + rnd() * 6).toFixed(1) + "px");
+            p.style.setProperty("--dx", ((rnd() * 16) - 8).toFixed(1) + "vw");
+            p.style.setProperty("--dy", (44 + rnd() * 34).toFixed(1) + "vh");
+            p.style.setProperty("--r", ((160 + rnd() * 260) * (rnd() < 0.5 ? -1 : 1)).toFixed(0) + "deg");
+            p.style.setProperty("--t", (1.6 + rnd() * 0.5).toFixed(2) + "s");
+            p.style.setProperty("--d", (rnd() * 0.35).toFixed(2) + "s");
+          }
+          parts.appendChild(p);
+        }
+        ov.classList.add(isWinArt ? "win" : "lose");
+        void ov.offsetWidth; /* クラスを付け直したアニメーションを必ず最初から再生する */
+        ov.classList.add("on");
+        let finished = false;
+        const finish = function(){
+          if (finished) return; finished = true;
+          resultIntroTimers.forEach(clearTimeout); resultIntroTimers = [];
+          ov.onclick = null;
+          ov.classList.remove("on");
+          resultIntroTimers.push(setTimeout(function(){
+            ov.classList.remove("win", "lose");
+            parts.innerHTML = "";
+          }, 360));
+          showPanel();
+        };
+        ov.onclick = finish; /* タップでスキップ */
+        resultIntroTimers.push(setTimeout(finish, reducedMotion() ? 1050 : 2080));
+      }
+
       function endGame(winner, reason){
         const G = S.G;
         G.over = true; G.mode = "over";
@@ -9561,7 +9722,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           $("result-title").textContent = win ? "勝利！" : "敗北…";
           $("result-desc").textContent = reason + (win ? " お見事！" : " デッキを変えて再挑戦してみよう。");
         }
-        setTimeout(function(){ $("overlay-result").classList.add("on"); }, 600);
+        /* 決着演出（勝敗とも約2秒）を挟んでから結果パネルを出す。書の出し分けは結果パネルと同じ基準 */
+        playResultIntro(S.gameMode === "2p" || win, function(){ $("overlay-result").classList.add("on"); });
       }
 
       /* ================= battle rendering ================= */
