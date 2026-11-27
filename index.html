@@ -327,63 +327,48 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-      /* 対戦開始イントロ：画面全体が暗い墨の霧に覆われ、霧の中に水墨画の一枚絵（assets/dive_intro.jpg：月・城・桜・墨の山並み＋「Dive to イジンデン」ロゴ入り）が浮かび上がる。
-         霧が晴れる時は一枚絵も一緒にフェードアウトし、後ろの盤面が現れてからターンバナーへつなぐ。
-         霧は墨の濃淡で引いた横霞の帯：SVGの乱流変形（#sumiEdge1/2）で輪郭に筆の掠れと滲みを付け、晴れる時は墨の帯が左右に割れて開く */
+      /* 対戦開始イントロ：画面全体が黒い墨の雲の絵（assets/dive_fog.jpg：黒背景の墨雲に光る「Dive to イジンデン」ロゴ）に覆われる。
+         ロゴが霧の中にゆっくり浮かび上がったあと、絵ごと真ん中から左右に割れてゆっくり両サイドへはけていき、
+         後ろのプレイマップ（盤面）が中央から見えてくる。盤面が現れてからターンバナーへつなぐ。
+         左右分割は同じ絵を2枚重ねて clip-path で半分ずつ見せる方式：つなぎ目なく1枚絵に見え、割れる時はロゴも霧と一緒に左右へ運ばれる */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
         transition:opacity .8s ease, visibility 0s linear .8s;
       }
       .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .8s ease; }
-      .di-svgdefs{ position:absolute; width:0; height:0; overflow:hidden; }
-      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 2.8s ease;
-        background:
-          radial-gradient(ellipse at 50% 40%, rgba(88,92,102,.5) 0%, rgba(30,31,36,0) 56%),
-          linear-gradient(180deg, #0e0f12 0%, #17181d 46%, #060708 100%); }
+      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 3s ease; background:#050506; }
       .dive-intro.clear .di-bg{ opacity:0; }
-      /* 水墨画の一枚絵：霧の下からゆっくり浮かび上がり（わずかにズームアウトしながら）、晴れる時に霧と一緒に消える */
-      .di-art{ position:absolute; inset:0; background-image:url("assets/dive_intro.jpg"); background-size:cover; background-position:center;
-        opacity:0; transform:scale(1.07); transition:opacity 2.8s ease, transform 6.5s ease; }
-      .dive-intro.on .di-art{ opacity:1; transform:scale(1); }
-      .dive-intro.clear .di-art{ opacity:0; transition:opacity 2.6s ease, transform 2.6s ease; }
-      .di-fog{ position:absolute; left:-14vw; width:128vw; pointer-events:none; opacity:.92;
-        transition:opacity 2.8s ease, transform 2.8s cubic-bezier(.3,.6,.3,1); }
-      /* 横霞の帯：淡い墨の洗い＋濃い墨の帯を重ね、細い横線の重なりで筆の筋を出す */
-      .di-fog.f1{ height:48vh; top:-6%; filter:url(#sumiEdge1); animation:diDrift1 8s ease-in-out infinite alternate;
-        background:
-          repeating-linear-gradient(180deg, rgba(230,233,238,.028) 0 2px, rgba(230,233,238,0) 2px 6px),
-          linear-gradient(180deg, rgba(8,8,10,0) 4%, rgba(8,8,10,.55) 20%, rgba(8,8,10,0) 38%, rgba(8,8,10,.34) 82%, rgba(8,8,10,0) 96%),
-          linear-gradient(180deg, rgba(198,203,212,0) 8%, rgba(198,203,212,.34) 30%, rgba(150,156,166,.12) 44%, rgba(198,203,212,0) 58%, rgba(172,178,188,.26) 78%, rgba(198,203,212,0) 94%); }
-      .di-fog.f2{ height:44vh; top:26%; filter:url(#sumiEdge2); animation:diDrift2 9.5s ease-in-out infinite alternate;
-        background:
-          repeating-linear-gradient(180deg, rgba(230,233,238,.024) 0 2px, rgba(230,233,238,0) 2px 7px),
-          linear-gradient(180deg, rgba(8,8,10,0) 10%, rgba(8,8,10,.48) 34%, rgba(8,8,10,0) 52%, rgba(8,8,10,.3) 88%, rgba(8,8,10,0) 98%),
-          linear-gradient(180deg, rgba(198,203,212,0) 4%, rgba(198,203,212,.3) 24%, rgba(150,156,166,.1) 42%, rgba(198,203,212,0) 60%, rgba(172,178,188,.22) 80%, rgba(198,203,212,0) 96%); }
-      .di-fog.f3{ height:50vh; bottom:-8%; filter:url(#sumiEdge1); animation:diDrift1 8.5s ease-in-out infinite alternate-reverse;
-        background:
-          repeating-linear-gradient(180deg, rgba(230,233,238,.028) 0 2px, rgba(230,233,238,0) 2px 6px),
-          linear-gradient(180deg, rgba(8,8,10,0) 2%, rgba(8,8,10,.4) 22%, rgba(8,8,10,0) 40%, rgba(8,8,10,.58) 76%, rgba(8,8,10,0) 94%),
-          linear-gradient(180deg, rgba(198,203,212,0) 6%, rgba(198,203,212,.26) 26%, rgba(150,156,166,.1) 46%, rgba(198,203,212,0) 62%, rgba(172,178,188,.3) 84%, rgba(198,203,212,0) 97%); }
-      .di-fog.f4{ height:32vh; top:44%; opacity:.7; filter:url(#sumiEdge2); animation:diDrift2 7s ease-in-out infinite alternate-reverse;
-        background:
-          repeating-linear-gradient(180deg, rgba(230,233,238,.02) 0 2px, rgba(230,233,238,0) 2px 7px),
-          linear-gradient(180deg, rgba(8,8,10,0) 8%, rgba(8,8,10,.42) 40%, rgba(8,8,10,0) 66%),
-          linear-gradient(180deg, rgba(198,203,212,0) 10%, rgba(198,203,212,.3) 38%, rgba(150,156,166,.08) 58%, rgba(198,203,212,0) 86%); }
-      @keyframes diDrift1{ from{ margin-left:-3vw; } to{ margin-left:3.5vw; } }
-      @keyframes diDrift2{ from{ margin-left:3vw; } to{ margin-left:-3.5vw; } }
-      /* 一枚絵が浮かび上がる間、霧は薄くなって絵を透かす（晴れる時は下のclear指定が優先される） */
-      .dive-intro.on .di-fog{ opacity:.48; }
-      .dive-intro.on .di-fog.f4{ opacity:.34; }
-      /* 晴れる時：墨の帯が左右に割れて開き、滲むように消える */
-      .dive-intro.clear .di-fog, .dive-intro.clear .di-fog.f4{ opacity:0; animation:none; }
-      .dive-intro.clear .di-fog.f1{ transform:translateX(-17vw) scaleY(1.12); }
-      .dive-intro.clear .di-fog.f2{ transform:translateX(17vw) scaleY(1.12); }
-      .dive-intro.clear .di-fog.f3{ transform:translateX(-13vw) translateY(6vh) scaleY(1.15); }
-      .dive-intro.clear .di-fog.f4{ transform:translateX(13vw) translateY(-5vh) scaleY(1.2); }
+      /* 墨雲の絵（左右半分）：闇からゆっくり浮かび上がり、わずかにズームアウトしながら落ち着く */
+      .di-half{ position:absolute; inset:0; background-image:url("assets/dive_fog.jpg"); background-size:cover; background-position:center;
+        opacity:0; transform:scale(1.07); transition:opacity 2.8s ease, transform 7s ease; will-change:transform, opacity; }
+      .di-half.left{ clip-path:inset(0 49.6% 0 0); }
+      .di-half.right{ clip-path:inset(0 0 0 49.6%); }
+      /* 割れ目側の縁にだけ薄い影を落とし、霧の厚みとして見せる（直線の切り口が安っぽくならないように） */
+      .di-half.left::after{ content:""; position:absolute; top:0; bottom:0; left:calc(50.4% - 11vw); width:11vw;
+        background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.5) 100%); }
+      .di-half.right::after{ content:""; position:absolute; top:0; bottom:0; left:49.6%; width:11vw;
+        background:linear-gradient(270deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.5) 100%); }
+      .dive-intro.on .di-half{ opacity:1; transform:scale(1); }
+      /* 晴れる時：左右の霧がゆっくり両サイドへはけていく。終盤で薄くなり、画面端の外へ抜け切る */
+      .dive-intro.clear .di-half{ opacity:0; transition:opacity 3.4s ease, transform 3.4s cubic-bezier(.45,.04,.25,1); }
+      .dive-intro.clear .di-half.left{ transform:translateX(-60vw) scale(1); }
+      .dive-intro.clear .di-half.right{ transform:translateX(60vw) scale(1); }
+      /* 割れ目の光：霧が開くにつれて中央から盤面の光が差すように見せる細い光（開き始めだけ見え、最後は消える） */
+      .di-seam{ position:absolute; left:50%; top:0; bottom:0; width:34vw; margin-left:-17vw; opacity:0; pointer-events:none;
+        background:radial-gradient(ellipse 50% 62% at 50% 42%, rgba(255,238,196,.34) 0%, rgba(255,238,196,.1) 46%, rgba(255,238,196,0) 72%);
+        transition:opacity 1.6s ease; }
+      .dive-intro.clear .di-seam{ opacity:1; transition:opacity 3.2s ease; }
+      /* 盤面フラッシュ防止の「先覆い」：対戦開始の処理が盤面を表示するより先に、この状態で画面を真っ黒に覆っておく。
+         transitionを切って即座に不透明にし、墨雲の絵はまだ出さない（絵は playDiveIntro が cover を外した時にゆっくり浮かぶ） */
+      .dive-intro.cover{ transition:none !important; opacity:1 !important; visibility:visible; }
+      .dive-intro.cover .di-bg{ transition:none !important; opacity:1 !important; }
+      .dive-intro.cover .di-half{ opacity:0 !important; }
+      /* 先覆い無しでイントロが始まる経路用：コンテナだけ遷移を切って即座に真っ黒で覆い、盤面を一瞬も見せない */
+      .dive-intro.snap, .dive-intro.snap .di-bg{ transition:none !important; }
       @media (prefers-reduced-motion: reduce){
-        .di-fog{ animation:none !important; }
-        .di-art{ transition:opacity .4s ease; transform:none; }
-        .dive-intro.on .di-art, .dive-intro.clear .di-art{ transform:none; }
+        .di-half{ transition:opacity .4s ease; transform:none; }
+        .dive-intro.on .di-half, .dive-intro.clear .di-half{ transform:none; }
+        .di-seam{ display:none; }
       }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
@@ -1145,26 +1130,13 @@
           <div class="callout-sub" id="callout-sub"></div>
         </div>
 
-        <!-- 対戦開始イントロ：暗い墨の霧→水墨画の一枚絵（ロゴ入り）が霧の中に浮かぶ→霧と一枚絵が晴れて盤面→ターンバナー（タップでスキップ可） -->
+        <!-- 対戦開始イントロ：黒い墨雲の絵（ロゴ入り）が闇に浮かぶ→霧が左右に割れてゆっくりはけ、盤面が見える→ターンバナー（タップでスキップ可）。
+             左右の .di-half は同じ絵を clip-path で半分ずつ表示したもので、割れる時はロゴごと左右へ運ばれる -->
         <div class="dive-intro" id="dive-intro" aria-hidden="true">
-          <svg class="di-svgdefs" aria-hidden="true" focusable="false">
-            <defs>
-              <filter id="sumiEdge1" x="-20%" y="-90%" width="140%" height="280%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.011 0.085" numOctaves="2" seed="7" result="n" />
-                <feDisplacementMap in="SourceGraphic" in2="n" scale="52" xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-              <filter id="sumiEdge2" x="-20%" y="-90%" width="140%" height="280%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.009 0.07" numOctaves="2" seed="23" result="n" />
-                <feDisplacementMap in="SourceGraphic" in2="n" scale="68" xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-            </defs>
-          </svg>
           <div class="di-bg"></div>
-          <div class="di-art" role="img" aria-label="月と城と桜、墨の山並みの水墨画に「Dive to イジンデン」のロゴ"></div>
-          <div class="di-fog f1"></div>
-          <div class="di-fog f2"></div>
-          <div class="di-fog f3"></div>
-          <div class="di-fog f4"></div>
+          <div class="di-half left" role="img" aria-label="黒い墨の雲の背景に光る「Dive to イジンデン」のロゴ"></div>
+          <div class="di-half right" aria-hidden="true"></div>
+          <div class="di-seam"></div>
         </div>
 
         <!-- opponent side (CPU / プレイヤー2): mat rotated 180°, zones mirrored -->
@@ -6430,6 +6402,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         log("プレイマット："+whoName("P")+"の陣地は"+mats[0]+"色、"+whoName("C")+"の陣地は"+mats[1]+"色のマット。", "sys");
         log("手札6枚を引き、山札の上4枚をガーディアンに置いた。先攻は"+whoName(firstKey || "P")+"。", "sys");
         preloadCallouts();
+        // 盤面フラッシュ防止：盤面の表示・描画より先に、イントロの黒い覆いを即座に被せておく（先行・後攻どちらでも）
+        primeDiveIntro();
         if ((firstKey || "P") === "C" && S.gameMode === "cpu") cpuTurn(true);
         else beginTurn(firstKey || "P", true);
         show("scr-battle");
@@ -6494,9 +6468,24 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
         }
       }
-      /* ---- 対戦開始イントロ：暗い墨の霧の中に水墨画の一枚絵（ロゴ入り）が浮かび、霧と一枚絵が晴れて盤面が現れたあと、opts.nextのターンバナーへつなぐ。
+      /* ---- 対戦開始イントロ：黒い墨雲の絵（ロゴ入り）が闇に浮かび、霧が真ん中から左右に割れてゆっくりはけると盤面が現れ、opts.nextのターンバナーへつなぐ。
          タップでスキップ可。完了を待てるようPromiseを返す（オンライン対戦のゲスト再演用） ---- */
       let diveIntroTimers = [], diveIntroResolve = null, diveIntroPhase = 2;
+      /* 盤面フラッシュ防止：対戦開始の入口（startGame／オンラインのゲスト開始受信）で、盤面を表示するより先に呼ぶ。
+         オーバーレイを遷移なしで即座に真っ黒・不透明にし、この後の盤面表示・描画はすべて黒の裏で行われるようにする。
+         墨雲の絵はまだ出さず、playDiveIntro が cover を外した瞬間からゆっくり浮かび上がる */
+      function primeDiveIntro(){
+        const ov = $("dive-intro"); if (!ov) return;
+        diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
+        if (diveIntroResolve){ const r0 = diveIntroResolve; diveIntroResolve = null; r0(); }
+        diveIntroPhase = 0;
+        ov.classList.remove("clear");
+        ov.classList.add("on"); ov.classList.add("cover");
+        // 保険：万一このままイントロ本体が始まらなかったら、覆いを残し続けない
+        diveIntroTimers.push(setTimeout(function(){
+          if (ov.classList.contains("cover")){ ov.classList.remove("cover"); ov.classList.remove("on"); diveIntroPhase = 2; }
+        }, 12000));
+      }
       function playDiveIntro(opts){
         // オンライン対戦：ホストはダイブ開始をイベントとして記録し、ゲスト側でも同じイントロを再演する
         if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: "dive", sub: "" }); NET.queueState(); }
@@ -6517,21 +6506,27 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const finish = function(){
           diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
           diveIntroPhase = 2;
-          ov.classList.remove("on"); ov.classList.remove("clear");
+          ov.classList.remove("on"); ov.classList.remove("clear"); ov.classList.remove("cover");
           const r = diveIntroResolve; diveIntroResolve = null; if (r) r();
           if (next && S.G && !S.G.over) showCallout(next.kind, next.sub, { dur: next.dur || 1150, next: next.next || null, gap: next.gap });
         };
         const toClear = function(){
           if (diveIntroPhase !== 0) return;
           diveIntroPhase = 1;
-          ov.classList.add("clear"); // 霧と一枚絵が約2.8秒かけてゆっくり消え、後ろの盤面が現れる
-          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 2900));
+          ov.classList.add("clear"); // 墨雲の絵が真ん中から左右に割れ、約3.4秒かけてゆっくり両サイドへはけて盤面が現れる
+          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 3500));
         };
         diveIntroPhase = 0;
-        ov.classList.remove("clear"); ov.classList.remove("on"); void ov.offsetWidth;
-        diveIntroTimers.push(setTimeout(function(){ ov.classList.add("on"); }, 40));
+        if (ov.classList.contains("cover")){
+          // 先覆い済み：黒い覆いはそのまま維持し、墨雲の絵だけをここからゆっくり浮かび上がらせる（盤面は一切見えない）
+          ov.classList.remove("cover");
+        } else {
+          // 先覆い無しの経路でも盤面を一瞬も見せない：コンテナの遷移を切って即座に真っ黒で覆ってから始める
+          ov.classList.remove("clear"); ov.classList.remove("on"); void ov.offsetWidth;
+          ov.classList.add("snap"); ov.classList.add("on"); void ov.offsetWidth; ov.classList.remove("snap");
+        }
         diveIntroTimers.push(setTimeout(toClear, clearAt));
-        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 7400)); // 保険：必ず終わる
+        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 8000)); // 保険：必ず終わる
         ov.onclick = function(){ // タップでスキップ（霧を晴らす→即終了）
           if (diveIntroPhase === 0) toClear();
           else if (diveIntroPhase === 1) finish();
@@ -6553,7 +6548,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       function preloadCallouts(){
         Object.keys(CALLOUT_IMG).forEach(function(k){ const i = new Image(); i.src = CALLOUT_IMG[k]; });
-        ["assets/callout_win.png", "assets/callout_lose.png", "assets/dive_intro.jpg"].forEach(function(s){ const i = new Image(); i.src = s; });
+        ["assets/callout_win.png", "assets/callout_lose.png", "assets/dive_fog.jpg"].forEach(function(s){ const i = new Image(); i.src = s; });
       }
 
       /* ---- mana ---- */
@@ -10156,6 +10151,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             $("mat-cpu").style.backgroundImage = 'url("' + MAT_FILES[msg.matP] + '")';
             clearZCache();
             setPill("対戦中", "");
+            // 盤面フラッシュ防止：ゲスト側も盤面を表示するより先にイントロの黒い覆いを被せ、霧イントロの再演まで盤面を見せない
+            primeDiveIntro();
             show("scr-battle");
             if (NET.pendingState){
               const ps = NET.pendingState; NET.pendingState = null;
