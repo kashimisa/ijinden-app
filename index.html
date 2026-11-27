@@ -1072,6 +1072,87 @@
         background:rgba(20,24,38,.6);
       }
       .net-pill.bad{ border-color:rgba(224,86,95,.8); color:#f0939a; }
+
+      /* ---------- デッキ選択画面の改善（GPTレビュー指示：タイル／配置／ボタン／保存デッキ欄／背景） ----------
+         対象は色選択①（どのデッキでダイブする？）と、同じ部品を使うCPU色選択②。
+         機能・遷移・ラベル切替は一切変えず、見せ方だけを差し替える。 */
+      /* ■1 パネルの配置：画面中央より少し上に置き、下半分は背景が見える余白として残す */
+      #scr-color1.on, #scr-color2.on{ display:flex; flex-direction:column; justify-content:center; padding-bottom:15dvh; }
+      #scr-color1 .panel, #scr-color2 .panel{ position:relative; z-index:1; }
+      /* ■5 背景：濃紺は維持。左右端に薄い墨の流れと霧、ごく少量の金の微粒子だけを足す（UIの背後に強い装飾は置かない） */
+      #scr-color1, #scr-color2{ position:relative; overflow:hidden;
+        background-image:
+          radial-gradient(2px 2px at 6% 18%, rgba(217,171,60,.55), rgba(217,171,60,0) 70%),
+          radial-gradient(2px 2px at 94% 26%, rgba(217,171,60,.5), rgba(217,171,60,0) 70%),
+          radial-gradient(2px 2px at 9% 74%, rgba(217,171,60,.4), rgba(217,171,60,0) 70%),
+          radial-gradient(2px 2px at 91% 82%, rgba(217,171,60,.45), rgba(217,171,60,0) 70%),
+          radial-gradient(2px 2px at 96% 55%, rgba(217,171,60,.35), rgba(217,171,60,0) 70%),
+          radial-gradient(2px 2px at 4% 46%, rgba(217,171,60,.35), rgba(217,171,60,0) 70%),
+          linear-gradient(180deg, #0a0e1a 0, #0d1220 300px, #111830 100%);
+      }
+      #scr-color1::before, #scr-color2::before, #scr-color1::after, #scr-color2::after{
+        content:""; position:absolute; top:5%; bottom:5%; width:132px; pointer-events:none; filter:blur(14px); opacity:.85; z-index:0;
+      }
+      #scr-color1::before, #scr-color2::before{ left:-66px;
+        background:
+          radial-gradient(60% 44% at 62% 28%, rgba(5,7,14,.9), rgba(5,7,14,0) 70%),
+          radial-gradient(56% 40% at 56% 68%, rgba(9,12,22,.85), rgba(9,12,22,0) 70%),
+          radial-gradient(72% 58% at 52% 50%, rgba(226,232,242,.10), rgba(226,232,242,0) 72%);
+      }
+      #scr-color1::after, #scr-color2::after{ right:-66px;
+        background:
+          radial-gradient(60% 44% at 38% 34%, rgba(5,7,14,.9), rgba(5,7,14,0) 70%),
+          radial-gradient(56% 40% at 44% 72%, rgba(9,12,22,.85), rgba(9,12,22,0) 70%),
+          radial-gradient(72% 58% at 48% 46%, rgba(226,232,242,.09), rgba(226,232,242,0) 72%);
+      }
+      /* ■2 5色タイル：5枚横並びのまま、画像を約25%縦に大きく（比率1:1→4:5）し、間隔を少し広げる。
+         未選択は少し暗く、選択中は金の外枠＋控えめな金の発光＋わずかな拡大＋チェックで明確にする */
+      .color-grid{ gap:11px; }
+      .color-btn{ position:relative; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease; }
+      .color-btn .orb-tile{ aspect-ratio:4/5; filter:brightness(.8) saturate(.94); }
+      .color-btn:not(.sel) .cname{ color:#c6ccdd; }
+      .color-btn.sel{
+        border-color:#d9ab3c; background:#1a2138; transform:scale(1.045); z-index:1;
+        box-shadow:0 0 0 2px rgba(217,171,60,.9), 0 0 14px rgba(217,171,60,.28), 0 8px 20px rgba(0,0,0,.5);
+      }
+      .color-btn.sel .orb-tile{ transform:scale(1.03); filter:brightness(1.09) saturate(1.06); }
+      .color-btn.sel::after{
+        content:"✓"; position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%;
+        background:linear-gradient(180deg, #ecca6d, #c7a45a); color:#241a02; font-size:.72rem; font-weight:900;
+        display:flex; align-items:center; justify-content:center; line-height:1;
+        box-shadow:0 2px 6px rgba(0,0,0,.45); z-index:2;
+      }
+      @media (prefers-reduced-motion: reduce){ .color-btn{ transition:none; } }
+      /* ■3 次へボタン：未選択（無効）時は暗い紺＋細い控えめな枠＋沈んだ文字で「押せない」ことを示し、
+         選択済み（有効）時は明るい文字＋金の枠と控えめな金の気配で「押せる」ことを明確にする */
+      #scr-color1 .big-btn.accent, #scr-color2 .big-btn.accent{
+        background:linear-gradient(180deg, #2b3556, #1d2745);
+        border:1.5px solid rgba(217,171,60,.85); color:#ffedb5; letter-spacing:.02em;
+        box-shadow:0 0 0 1px rgba(217,171,60,.22), 0 6px 18px rgba(0,0,0,.45), 0 0 12px rgba(217,171,60,.16);
+      }
+      #scr-color1 .big-btn.accent:disabled, #scr-color2 .big-btn.accent:disabled{
+        background:#101527; border:1px solid rgba(199,164,90,.22); color:rgba(233,226,207,.34);
+        box-shadow:none; opacity:1; cursor:not-allowed;
+      }
+      /* ■4 保存デッキ欄：文字だけの見出しから、独立した横長パネルにする（左アイコン／中央タイトル＋補助説明／右矢印）。
+         展開時の保存デッキ一覧・読み込み・作成中デッキの扱いは従来どおり */
+      .saved-pick-toggle{
+        align-items:center; gap:12px; justify-content:flex-start;
+        background:linear-gradient(180deg, #1d2539, #161d30);
+        border:1px solid rgba(199,164,90,.45); border-radius:12px;
+        padding:12px 14px; margin:14px 0 4px;
+        box-shadow:0 6px 16px rgba(0,0,0,.35);
+      }
+      .saved-pick-toggle .spt-icon{
+        flex:none; width:34px; height:34px; border-radius:9px;
+        background:rgba(217,171,60,.12); border:1px solid rgba(199,164,90,.4);
+        display:flex; align-items:center; justify-content:center;
+      }
+      .saved-pick-toggle .spt-icon svg{ width:20px; height:20px; display:block; }
+      .saved-pick-toggle .spt-tx{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; text-align:left; }
+      .saved-pick-toggle .spt-title{ font-size:.98rem; font-weight:800; color:#ece5d0; line-height:1.3; }
+      .saved-pick-toggle .spt-sub{ font-size:.72rem; font-weight:700; color:#a9b2c9; line-height:1.45; }
+      .saved-pick-toggle .spt-arrow{ margin-left:auto; }
 </style>
   </head>
   <body>
@@ -1148,7 +1229,7 @@
             <h3>あなたのデッキ</h3>
             <p class="sub" id="lobby-my-status">まだ選んでいない</p>
             <div id="lobby-saved-wrap">
-              <button type="button" class="saved-pick-toggle" id="lobby-saved-toggle" aria-expanded="false"><span>保存したデッキを使用する</span><span class="spt-arrow" aria-hidden="true">▾</span></button>
+              <button type="button" class="saved-pick-toggle" id="lobby-saved-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span><span class="spt-sub">保存済みのデッキをそのまま読み込めるよ</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
               <div id="lobby-saved-list" style="display:none;"></div>
             </div>
             <p class="sub" style="margin:10px 0 6px;">色を選んで新しく作る</p>
@@ -1177,7 +1258,7 @@
           <h2 id="color1-title">どのデッキでダイブする？</h2>
           <div class="color-grid" id="grid-player"></div>
           <div id="saved-pick-wrap" style="display:none;">
-            <button type="button" class="saved-pick-toggle" id="saved-pick-toggle" aria-expanded="false"><span>保存したデッキを使用する</span><span class="spt-arrow" aria-hidden="true">▾</span></button>
+            <button type="button" class="saved-pick-toggle" id="saved-pick-toggle" aria-expanded="false"><span class="spt-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#d9ab3c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M4.5 9v9.5A1.5 1.5 0 0 0 6 20h9"/><circle cx="14" cy="10" r="2.2"/><path d="M10.5 16.5h7"/></svg></span><span class="spt-tx"><span class="spt-title">保存したデッキを使用する</span><span class="spt-sub">保存済みのデッキをそのまま読み込めるよ</span></span><span class="spt-arrow" aria-hidden="true">▾</span></button>
             <div id="saved-pick-list" style="display:none;"></div>
           </div>
           <button class="big-btn accent" id="btn-to-cpu" disabled>次へ：CPUの色を選ぶ</button>
