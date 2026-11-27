@@ -185,6 +185,11 @@
 
       /* ---------- deck builder ---------- */
       .db-head{ position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0 8px; }
+      /* 構築画面の離脱ボタン：カード一覧の一番下にある戻るボタンまで辿らないと出られなかったため、
+         スティッキーヘッダーの右上に常時見える形で置く（文脈でラベルと戻り先が変わる） */
+      .db-head-top{ display:flex; align-items:flex-start; gap:8px; }
+      .db-head-top h2{ flex:1; min-width:0; }
+      #btn-build-exit{ flex:none; width:auto; margin-top:0; min-height:0; padding:7px 12px; font-size:.78rem; border-radius:999px; white-space:nowrap; }
       .db-count{ display:flex; align-items:baseline; gap:8px; }
       .db-count .num{ font-size:1.9rem; font-weight:900; }
       .db-count .num small{ font-size:1rem; color:var(--ink2); }
@@ -341,7 +346,9 @@
       }
       .cpu-ticker.on{ display:block; }
       /* fx modal (effect choices) */
-      .fx-overlay{ z-index:80; }
+      /* z-index は ID セレクタで指定する：.overlay の基本ルール（z-index:50）が後方にあり、
+         クラス同士だと同格で後勝ちになって 50 に潰れ、重なり順が DOM 順になってしまうため */
+      #overlay-fx{ z-index:80; }
       .fx-card{ text-align:left; max-width:400px; }
       .fx-card h2{ font-size:1.12rem; margin:0 0 6px; text-align:left; }
       .fx-card p{ white-space:pre-wrap; }
@@ -464,9 +471,11 @@
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
       .pile .ptap{ font-size:.52rem; color:var(--gold); font-weight:800; letter-spacing:.06em; }
-      /* 墓地ビューアは効果選択モーダル（fx-overlay:80）より手前に出す：
-         遺業の発動判断などの選択中でも墓地を確認してから決められるようにするため */
-      .grave-overlay{ z-index:90; }
+      /* 墓地ビューアは効果選択モーダル（#overlay-fx:80）より手前に出す：
+         遺業の発動判断などの選択中でも墓地を確認してから決められるようにするため。
+         ID セレクタで指定しないと .overlay の基本ルール（z-index:50・後方定義）に潰されて
+         fx モーダルの裏に開いてしまう（実際に起きた不具合） */
+      #overlay-grave{ z-index:90; }
       /* 効果選択モーダル内の「墓地を見る」ボタン行（判断前に両陣営の墓地を確認できる） */
       .fx-grave-row{ display:flex; gap:8px; margin-top:12px; }
       .fx-grave-btn{
@@ -1295,7 +1304,10 @@
       <!-- ===== Screen 3: deck builder ===== -->
       <section class="screen" id="scr-build">
         <div class="db-head">
-          <h2 style="margin:2px 0 0; font-size:1.15rem;">③ デッキ構築（<span id="db-color-name"></span>）<span id="db-who" style="font-size:.85rem; color:var(--accent);"></span></h2>
+          <div class="db-head-top">
+            <h2 style="margin:2px 0 0; font-size:1.15rem;">③ デッキ構築（<span id="db-color-name"></span>）<span id="db-who" style="font-size:.85rem; color:var(--accent);"></span></h2>
+            <button class="ghost-btn" id="btn-build-exit" type="button">タイトルへもどる</button>
+          </div>
           <div class="db-count">
             <span class="num"><span id="db-total">0</span><small> 枚</small></span>
             <span style="font-size:.78rem; color:var(--ink2); font-weight:700;">同名は4枚まで</span>
@@ -6289,6 +6301,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         else if (S.gameMode === "2p"){ show("scr-color1"); }
         else { configColor2(); show("scr-color2"); }
       });
+      /* 構築ヘッダーの離脱ボタン（一覧最下部の btn-back2 までスクロールしなくても出られるように）：
+         対戦用構築ではタイトルへ直行、軍団編成・オンラインではそれぞれの入口画面へ戻る */
+      $("btn-build-exit").addEventListener("click", function(){
+        if (S.buildCtx === "online"){ S.buildCtx = "battle"; show("scr-lobby"); return; }
+        if (S.buildCtx === "gundan"){ S.buildCtx = "battle"; renderGundan(); show("scr-gundan"); return; }
+        show("scr-mode");
+      });
 
       /* ================= 軍団編成（マイデッキ保存：localStorage） ================= */
       const MYDECK_KEY = "ijinden_mydecks_v1";
@@ -6640,6 +6659,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("db-who").textContent = S.gameMode === "2p" ? "：" + (S.buildTarget === "P" ? "プレイヤー1" : "プレイヤー2") + "のデッキ" : "";
         $("btn-start-battle").textContent = (S.gameMode === "2p" && S.buildTarget === "P") ? "プレイヤー1のデッキ決定！次はプレイヤー2の準備" : "このデッキで対戦開始！";
         $("btn-back2").textContent = S.gameMode === "2p" ? (S.buildTarget === "C" ? "プレイヤー2の色を選び直す" : "色を選び直す") : "CPUの色を選び直す";
+        $("btn-build-exit").textContent = "タイトルへもどる";
         const total = deckTotal();
         $("db-total").textContent = total;
         $("db-meter").style.width = Math.min(100, total/40*100) + "%";
@@ -6668,6 +6688,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.buildCtx === "gundan"){
           $("db-who").textContent = "：軍団編成" + (S.editDeckId ? "（編集中：" + S.editDeckName + "）" : "（新しいデッキ）");
           $("btn-back2").textContent = "軍団編成へもどる";
+          $("btn-build-exit").textContent = "軍団編成へもどる";
           sb2.textContent = S.editDeckId ? "この内容で上書き保存" : "名前を付けて保存";
           svBtn.style.display = "none";
           // 途中保存：40枚未満でも保存できる（軍団編成のときだけ出す。0枚のときと、完成時は通常保存に任せるので無効）
@@ -6683,6 +6704,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (S.buildCtx === "online"){
           $("db-who").textContent = "：オンライン対戦のデッキ";
           $("btn-back2").textContent = "ロビーへもどる";
+          $("btn-build-exit").textContent = "ロビーへもどる";
           sb2.textContent = "このデッキで準備OK";
           $("btn-start-battle").textContent = "このデッキで準備OK";
         }
