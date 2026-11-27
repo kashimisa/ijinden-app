@@ -6670,11 +6670,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           }
         });
       }
+      // タマル王：相手の戦場にタマル王がいる間、手札が3枚以上あるプレイヤーはカードを引けない。
+      // 演出（コールアウト／ティッカー）を出す側も、引く前にこの判定で「引けるかどうか」を確認する
+      function drawBlockedByTamaru(sideKey){
+        const foeT = S.G[foeKeyOf(sideKey)];
+        return foeT.field.some(function(f){ return f.name === "タマル王" && !f.faceDown; }) && S.G[sideKey].hand.length >= 3;
+      }
       async function drawCards(sideKey, n){
         const side = S.G[sideKey];
-        // タマル王：相手の戦場にタマル王がいる間、手札が3枚以上あるプレイヤーはカードを引けない
-        const foeT = S.G[foeKeyOf(sideKey)];
-        if (foeT.field.some(function(f){ return f.name === "タマル王" && !f.faceDown; }) && side.hand.length >= 3){
+        if (drawBlockedByTamaru(sideKey)){
           log("「タマル王」の効果で、" + whoName(sideKey) + "はカードを引けない。", "sys");
           return 0;
         }
@@ -7674,9 +7678,16 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (!first){
           // ターン開始バナーが消えてから、ドローの飛行開始と同時に「ドロー」を出す
           await wait(1250);
-          showCallout("draw");
           G.noModernBonus = true; // ターン開始時の通常ドローはモダンアートの殿堂の対象外
-          await drawCards(k, 1); log(whoName(k) + "のターン（" + G.round + "ターン目）。1枚ドローした。", "sys");
+          if (drawBlockedByTamaru(k)){
+            // タマル王で引けないときは「ドロー」の演出は出さず、封じられたことだけを見せる（カードも飛ばない）
+            showCallout("kouka", "タマル王の効果でドローできない");
+            await drawCards(k, 1);
+          } else {
+            showCallout("draw");
+            const drewN = await drawCards(k, 1);
+            if (drewN > 0) log(whoName(k) + "のターン（" + G.round + "ターン目）。1枚ドローした。", "sys");
+          }
           G.noModernBonus = false;
         }
         else log(whoName(k) + "のターン（1ターン目）。先攻の初ターンはドローなし。", "sys");
@@ -7717,13 +7728,20 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         { const kofunC = C.haikei.filter(function(h){ return h.name === "巨大古墳" && !h.faceDown; }).length;
           if (kofunC && !haikeiDisabled("C") && !maryokuGainBlocked()){ C.maryokuRights += kofunC; log("「巨大古墳」の能力：CPUのマリョク配置権+" + kofunC + "した。"); } }
         if (!first){
-          // コールアウトは行動の開始と同時：カードが山札から飛び始める瞬間に出す（アニメーション完了後ではない）
-          showCallout("draw");
-          setTicker("CPUが1枚ドローした");
           G.noModernBonus = true; // ターン開始時の通常ドローはモダンアートの殿堂の対象外
-          await drawCards("C", 1);
+          if (drawBlockedByTamaru("C")){
+            // タマル王で引けないときは「ドロー」の演出・ティッカーは出さず、封じられたことだけを見せる（カードも飛ばない）
+            showCallout("kouka", "タマル王の効果でドローできない");
+            setTicker("「タマル王」の効果でCPUはドローできない");
+            await drawCards("C", 1);
+          } else {
+            // コールアウトは行動の開始と同時：カードが山札から飛び始める瞬間に出す（アニメーション完了後ではない）
+            showCallout("draw");
+            setTicker("CPUが1枚ドローした");
+            const drewC = await drawCards("C", 1);
+            if (drewC > 0) log("CPUのターン。1枚ドローした。", "sys");
+          }
           G.noModernBonus = false;
-          log("CPUのターン。1枚ドローした。", "sys");
         } else {
           log("CPUのターン（1ターン目）。先攻の初ターンはドローなし。", "sys");
         }
