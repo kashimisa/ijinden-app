@@ -150,6 +150,7 @@
       }
       .card-row.picked{ border-color:var(--accent); box-shadow:0 0 0 1.5px var(--accent) inset; }
       .cdot{ width:13px; height:13px; border-radius:50%; background:var(--cc); flex:none; box-shadow:inset -2px -2px 0 rgba(0,0,0,.2); }
+      .dots{ display:inline-flex; gap:3px; flex:none; align-items:center; }
       .card-row .info{ flex:1; min-width:0; }
       .card-row .nm{ font-weight:800; font-size:.92rem; line-height:1.3; }
       .card-row .meta{ font-size:.7rem; color:var(--ink2); font-weight:700; margin-top:1px; }
@@ -901,8 +902,9 @@
           <p class="sub">作ったデッキに名前を付けて、この端末に保存できるよ。保存したデッキは対戦のはじめに選ぶだけで、そのまま使える。</p>
           <div id="gundan-list"></div>
           <h3 class="gundan-new-title">新しいデッキを作る</h3>
-          <p class="sub" style="margin-bottom:8px;">色を選ぶとデッキ構築が始まるよ（40枚選んで名前を付けて保存）。</p>
+          <p class="sub" style="margin-bottom:8px;">色をタップで選んでね（2色まで＝ミックスデッキも作れるよ）。選んだら下のボタンで構築スタート。</p>
           <div class="color-grid" id="grid-gundan"></div>
+          <button class="big-btn" id="btn-gundan-start" disabled style="margin-top:10px;">色を選んでね</button>
           <button class="ghost-btn" id="btn-gundan-back">タイトルへもどる</button>
         </div>
       </section>
@@ -5495,6 +5497,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         playerColor: null, cpuColor: null,
         buildTarget: "P",      // デッキ構築中の対象 "P" | "C"（2人戦のプレイヤー2）
         buildColor: null,
+        buildColors: null,     // 軍団編成で選んだ色（1〜2色）。buildColor はその先頭（代表色）
         buildCtx: "battle",    // 構築の文脈 "battle"（対戦用） | "gundan"（軍団編成）
         editDeckId: null, editDeckName: "",  // 軍団編成で編集中の保存デッキ
         useSavedDeck: false,   // 色選択①で保存デッキを選んだか
@@ -5523,6 +5526,20 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (c.color === color || (c.color.length > 1 && c.color.indexOf(color) >= 0)) set.set(c.name, c);
         });
         (APPDATA.recommended[color] || []).forEach(function(n){ if (CARD[n]) set.set(n, CARD[n]); });
+        const arr = Array.from(set.values());
+        arr.sort(function(x,y){
+          const o = {"I":0,"M":1,"S":2};
+          if (o[x.type] !== o[y.type]) return o[x.type]-o[y.type];
+          if (x.level !== y.level) return x.level-y.level;
+          return x.name.localeCompare(y.name, "ja");
+        });
+        return arr;
+      }
+      /* 2色ミックス用：選んだ色すべてのプールを合わせた一覧（同名カードは1件にまとめる） */
+      function poolForColors(colors){
+        if (!colors || colors.length <= 1) return poolFor(colors && colors[0]);
+        const set = new Map();
+        colors.forEach(function(col){ poolFor(col).forEach(function(c){ set.set(c.name, c); }); });
         const arr = Array.from(set.values());
         arr.sort(function(x,y){
           const o = {"I":0,"M":1,"S":2};
@@ -5658,16 +5675,62 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         } catch(e){ return []; }
       }
       function storeMyDecks(list){ try { localStorage.setItem(MYDECK_KEY, JSON.stringify(list)); } catch(e){} }
+      /* 初回起動時の初期データ：保存デッキ用のキーがまだ存在しない（＝一度も保存されていない）場合だけ、
+         実物の紫デッキを「今持ってるリアル紫デッキ」として1件登録する。
+         すでに保存デッキがある場合や、登録後に全て削除された場合は何もしない（上書き・再追加しない）。 */
+      (function seedRealPurpleDeck(){
+        let raw = null;
+        try { raw = localStorage.getItem(MYDECK_KEY); } catch(e){ return; }
+        if (raw !== null) return;
+        storeMyDecks([{
+          id: "d" + Date.now().toString(36) + Math.floor(Math.random()*1000),
+          name: "今持ってるリアル紫デッキ",
+          color: "紫",
+          cards: {
+            "岡田以蔵": 4,
+            "李成桂": 3,
+            "クララ・バートン": 2,
+            "渡辺崋山": 2,
+            "篤姫": 2,
+            "マリ・キュリー": 2,
+            "タウンゼント・ハリス": 1,
+            "スピリットアウェイ": 3,
+            "タイムディレイション": 3,
+            "コーザリティ": 1,
+            "テーブルターニング": 1,
+            "浪士集う長屋": 4,
+            "パープルオーブ": 4,
+            "ブラックブレイド": 3,
+            "ハンドミラー": 2,
+            "ヒエロスガモス": 2,
+            "太白のピラー": 1
+          },
+          updated: Date.now()
+        }]);
+      })();
       function deckCountsTotal(cards){ return Object.values(cards || {}).reduce(function(a,b){ return a + (b|0); }, 0); }
       function deckCountsToNames(cards){
         const names = [];
         Object.keys(cards || {}).forEach(function(n){ if (CARD[n]) for (let i = 0; i < cards[n]; i++) names.push(n); });
         return names;
       }
-      function saveDeckAsNew(name, color, cards){
+      function saveDeckAsNew(name, color, cards, colors){
         const list = loadMyDecks();
-        list.push({ id: "d" + Date.now().toString(36) + Math.floor(Math.random()*1000), name: name, color: color, cards: Object.assign({}, cards), updated: Date.now() });
+        list.push({ id: "d" + Date.now().toString(36) + Math.floor(Math.random()*1000), name: name, color: color, colors: (colors && colors.length ? colors.slice() : [color]), cards: Object.assign({}, cards), updated: Date.now() });
         storeMyDecks(list);
+      }
+      /* 保存デッキの色まわり：color は代表色（最初に選んだ色）、colors が実際の色の組（単色なら1色）。
+         colors を持たない旧形式のデッキは color だけから復元する。 */
+      function deckColors(d){ return (d && d.colors && d.colors.length) ? d.colors : [d.color]; }
+      function deckColorLabel(d){ return deckColors(d).join("・"); }
+      function deckDotsHtml(d){
+        return '<span class="dots">' + deckColors(d).map(function(col){
+          return '<span class="cdot" style="--cc:' + colorHex(col) + '; background:' + colorHex(col) + '"></span>';
+        }).join("") + '</span>';
+      }
+      /* 構築中の色の組（軍団編成のときだけ複数色ありうる。それ以外は代表色のみ） */
+      function curBuildColors(){
+        return (S.buildCtx === "gundan" && S.buildColors && S.buildColors.length) ? S.buildColors : [S.buildColor];
       }
       /* 名前入力モーダル（ブラウザ標準の入力ダイアログは使えないので画面内UIで聞く） */
       let nameModalCb = null;
@@ -5700,8 +5763,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const row = document.createElement("div");
           row.className = "gundan-item";
           row.innerHTML =
-            '<span class="cdot" style="--cc:' + colorHex(d.color) + '; background:' + colorHex(d.color) + '"></span>' +
-            '<div class="info"><div class="nm"></div><div class="meta">' + d.color + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</div></div>' +
+            deckDotsHtml(d) +
+            '<div class="info"><div class="nm"></div><div class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</div></div>' +
             '<div class="g-act"><button type="button" class="edit">編集</button><button type="button" class="del">削除</button></div>';
           row.querySelector(".nm").textContent = d.name;
           row.querySelector(".edit").addEventListener("click", function(){ startGundanEdit(d); });
@@ -5722,14 +5785,16 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         S.dbFilter = "all"; S.dbSearch = ""; $("db-search").value = "";
         $("db-filters").querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x.dataset.f === "all"); });
       }
-      function startGundanNew(color){
+      function startGundanNew(colors){
+        const cols = (Array.isArray(colors) ? colors : [colors]).filter(function(c){ return COLORS.indexOf(c) >= 0; });
+        if (!cols.length) return;
         S.buildCtx = "gundan"; S.editDeckId = null; S.editDeckName = "";
-        S.buildColor = color; S.deckSel = {};
+        S.buildColors = cols.slice(0, 2); S.buildColor = S.buildColors[0]; S.deckSel = {};
         resetDbFilters(); renderBuilder(); show("scr-build");
       }
       function startGundanEdit(deck){
         S.buildCtx = "gundan"; S.editDeckId = deck.id; S.editDeckName = deck.name;
-        S.buildColor = deck.color; S.deckSel = Object.assign({}, deck.cards);
+        S.buildColors = deckColors(deck).slice(0, 2); S.buildColor = S.buildColors[0]; S.deckSel = Object.assign({}, deck.cards);
         resetDbFilters(); renderBuilder(); show("scr-build");
       }
       function finishGundanBuild(){
@@ -5738,19 +5803,45 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           askDeckName(S.editDeckName, "上書き保存", function(nm){
             const list = loadMyDecks();
             const d = list.find(function(x){ return x.id === S.editDeckId; });
-            if (d){ d.name = nm; d.color = S.buildColor; d.cards = Object.assign({}, S.deckSel); d.updated = Date.now(); storeMyDecks(list); }
+            if (d){ d.name = nm; d.color = S.buildColor; d.colors = curBuildColors().slice(); d.cards = Object.assign({}, S.deckSel); d.updated = Date.now(); storeMyDecks(list); }
             S.buildCtx = "battle"; renderGundan(); show("scr-gundan");
           });
         } else {
           askDeckName("", "保存する", function(nm){
-            saveDeckAsNew(nm, S.buildColor, S.deckSel);
+            saveDeckAsNew(nm, S.buildColor, S.deckSel, curBuildColors());
             S.buildCtx = "battle"; renderGundan(); show("scr-gundan");
           });
         }
       }
       $("btn-to-gundan").addEventListener("click", function(){ renderGundan(); show("scr-gundan"); });
       $("btn-gundan-back").addEventListener("click", function(){ show("scr-mode"); });
-      buildColorGrid("grid-gundan", function(col){ startGundanNew(col); });
+      /* 軍団編成の色選択：タップで最大2色まで選択（もう一度タップで解除）。3色目を選ぶと一番古い選択と入れ替わる */
+      let gundanSelColors = [];
+      function renderGundanGrid(){
+        const g = $("grid-gundan"); g.innerHTML = "";
+        COLORS.forEach(function(col){
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "color-btn" + (gundanSelColors.indexOf(col) >= 0 ? " sel" : "");
+          b.style.setProperty("--cc", colorHex(col));
+          b.innerHTML = '<img class="orb-tile" src="assets/orbtile-' + ORB_FILE[col] + '.jpg" alt="' + col + 'のオーブを手で包むイラスト" /><span class="cname">' + col + '</span>';
+          b.addEventListener("click", function(){
+            const i = gundanSelColors.indexOf(col);
+            if (i >= 0) gundanSelColors.splice(i, 1);
+            else { if (gundanSelColors.length >= 2) gundanSelColors.shift(); gundanSelColors.push(col); }
+            renderGundanGrid();
+          });
+          g.appendChild(b);
+        });
+        const sb = $("btn-gundan-start");
+        sb.disabled = !gundanSelColors.length;
+        sb.textContent = !gundanSelColors.length ? "色を選んでね"
+          : (gundanSelColors.length === 2 ? gundanSelColors.join("・") + " ミックスでデッキを作る" : gundanSelColors[0] + "でデッキを作る");
+      }
+      renderGundanGrid();
+      $("btn-gundan-start").addEventListener("click", function(){
+        if (gundanSelColors.length) startGundanNew(gundanSelColors);
+      });
       /* デッキ構築画面から「名前を付けて保存」（対戦用の通常構築のときだけ出す） */
       $("btn-save-deck").addEventListener("click", function(){
         if (S.buildCtx === "gundan" || deckTotal() !== 40) return;
@@ -5776,8 +5867,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const b = document.createElement("button");
           b.type = "button"; b.className = "saved-deck-item";
           b.innerHTML =
-            '<span class="cdot" style="--cc:' + colorHex(d.color) + '; background:' + colorHex(d.color) + '"></span>' +
-            '<span><span class="nm"></span><br /><span class="meta">' + d.color + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
+            deckDotsHtml(d) +
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
             '<span class="go">このデッキで進む ›</span>';
           b.querySelector(".nm").textContent = d.name;
           b.addEventListener("click", function(){
@@ -5794,7 +5885,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       /* ================= deck builder ================= */
       function deckTotal(){ return Object.values(S.deckSel).reduce(function(a,b){ return a+b; }, 0); }
       function renderBuilder(){
-        $("db-color-name").textContent = S.buildColor;
+        const bCols = curBuildColors();
+        $("db-color-name").textContent = bCols.join("・");
         $("db-who").textContent = S.gameMode === "2p" ? "：" + (S.buildTarget === "P" ? "プレイヤー1" : "プレイヤー2") + "のデッキ" : "";
         $("btn-start-battle").textContent = (S.gameMode === "2p" && S.buildTarget === "P") ? "プレイヤー1のデッキ決定！次はプレイヤー2の準備" : "このデッキで対戦開始！";
         $("btn-back2").textContent = S.gameMode === "2p" ? (S.buildTarget === "C" ? "プレイヤー2の色を選び直す" : "色を選び直す") : "CPUの色を選び直す";
@@ -5839,13 +5931,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         }
         // list
         const list = $("db-list"); list.innerHTML = "";
-        poolFor(S.buildColor).forEach(function(c){
+        poolForColors(bCols).forEach(function(c){
           if (S.dbFilter !== "all" && c.type !== S.dbFilter) return;
           if (S.dbSearch && c.name.indexOf(S.dbSearch) < 0) return;
           const n = S.deckSel[c.name] || 0;
           const row = document.createElement("div");
           row.className = "card-row" + (n>0 ? " picked" : "");
-          const meta = "Lv" + c.level + (c.type === "I" ? " ・ パワー " + c.power : "") + (c.trait ? " ・ 特性：" + c.trait : "") + (c.color !== S.buildColor ? " ・ " + c.color + "色" : "");
+          const meta = "Lv" + c.level + (c.type === "I" ? " ・ パワー " + c.power : "") + (c.trait ? " ・ 特性：" + c.trait : "") + (bCols.indexOf(c.color) < 0 ? " ・ " + c.color + "色" : "");
           row.innerHTML =
             '<span class="cdot" style="--cc:'+colorHex(c.color)+'; background:'+colorHex(c.color)+'"></span>' +
             '<div class="info"><div class="nm">'+c.name+'</div><div class="meta">'+meta+'</div>' +
@@ -5886,7 +5978,19 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       $("btn-reset2").addEventListener("click", function(){ S.deckSel = {}; renderBuilder(); });
       $("btn-recommend2").addEventListener("click", function(){
         S.deckSel = {};
-        (APPDATA.recommended[S.buildColor] || []).forEach(function(n){ if (CARD[n]) S.deckSel[n] = (S.deckSel[n]||0)+1; });
+        const cols = curBuildColors();
+        if (cols.length === 2){
+          // 2色ミックスのおすすめ：両色のおすすめ編成を交互に取り、同名4枚まで・合計40枚に収める
+          const A = APPDATA.recommended[cols[0]] || [], B = APPDATA.recommended[cols[1]] || [];
+          let total = 0;
+          for (let i = 0; i < Math.max(A.length, B.length) && total < 40; i++){
+            [A[i], B[i]].forEach(function(n){
+              if (n && CARD[n] && (S.deckSel[n] || 0) < 4 && total < 40){ S.deckSel[n] = (S.deckSel[n]||0)+1; total++; }
+            });
+          }
+        } else {
+          (APPDATA.recommended[S.buildColor] || []).forEach(function(n){ if (CARD[n]) S.deckSel[n] = (S.deckSel[n]||0)+1; });
+        }
         renderBuilder();
       });
       $("btn-start-battle2").addEventListener("click", function(){ $("btn-start-battle").click(); });
@@ -9207,8 +9311,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const b = document.createElement("button");
           b.type = "button"; b.className = "saved-deck-item";
           b.innerHTML =
-            '<span class="cdot" style="--cc:' + colorHex(d.color) + '; background:' + colorHex(d.color) + '"></span>' +
-            '<span><span class="nm"></span><br /><span class="meta">' + d.color + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
+            deckDotsHtml(d) +
+            '<span><span class="nm"></span><br /><span class="meta">' + deckColorLabel(d) + 'デッキ ・ ' + deckCountsTotal(d.cards) + '枚</span></span>' +
             '<span class="go">このデッキにする ›</span>';
           b.querySelector(".nm").textContent = d.name;
           b.addEventListener("click", function(){ NET.setMyDeck(deckCountsToNames(d.cards), d.color); });
