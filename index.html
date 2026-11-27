@@ -6204,11 +6204,24 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (take > 0){ counts[n] = take; for (let i = 0; i < take; i++) names.push(n); }
         });
         if (names.length < 40){
-          buildRecommended([color]).forEach(function(n){
+          const rec = buildRecommended([color]);
+          const addRec = function(n){
             if (names.length >= 40) return;
             if ((counts[n] || 0) >= 4) return;
             counts[n] = (counts[n] || 0) + 1; names.push(n);
-          });
+          };
+          // 【色の起点の確保】レシピ側のマリョク種別が薄い色（紫・青）は、通常の順序で
+          // 補うとイジンから埋まってしまい、表向きマリョク（色の起点）がデッキに数枚しか
+          // 残らない。その状態では CPU は色条件を永遠に満たせず、何ターンもイジンを
+          // 1体も出せないまま裏向き配置を繰り返す事故になる（紫の達人で実際に発生）。
+          // マリョク種別が10枚未満のレシピでは、まず自色のマリョク種別から優先して補い、
+          // 12枚まで確保してから、残りを通常の順序で埋める。
+          const mzNum = function(){ return names.filter(function(n){ return isMaryokuCard(CARD[n]); }).length; };
+          if (mzNum() < 10){
+            rec.forEach(function(n){ if (mzNum() < 12 && isMaryokuCard(CARD[n]) && CARD[n].color.indexOf(color) >= 0) addRec(n); });
+            rec.forEach(function(n){ if (mzNum() < 12 && isMaryokuCard(CARD[n])) addRec(n); });
+          }
+          rec.forEach(addRec);
         }
         return names.length >= 40 ? names.slice(0, 40) : null;
       }
@@ -8841,7 +8854,19 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               return CARD[C.hand[b].name].level - CARD[C.hand[a].name].level;
             });
             idx = mzIdxs[0];
-          } else {
+            // 達人：ピラーは次の自ターン開始時に消耗で裏返るため、出したそのターンに
+            // 何か（イジン／ハイケイ／マホウ）を出せるようにならない置き方では、
+            // 色もレベルも残らず、ただ手札を1枚失うだけになる。ピラーしかマリョク種別が
+            // 無いときは「このピラーで何が開けるか」を先に確かめ、何も開けないなら
+            // 温存して、下のレベル確保（裏向き配置）に切り替える。
+            if (S.cpuLevel === "master" && isPillarCard(CARD[C.hand[idx].name])){
+              C.maryoku.push({ uid: -1, name: C.hand[idx].name, faceUp: true });
+              const enables = C.hand.some(function(h, i){ return i !== idx && canUseCard(C, CARD[h.name]).ok; });
+              C.maryoku.pop();
+              if (!enables) idx = -1;
+            }
+          }
+          if (idx < 0) {
             // レベル確保が必要か：色条件は満たしていて、レベルが足りないカードがあるか。
             // 【詰まりの根治】以前は「あと1レベルちょうど」のときしか裏向きで置かなかったため、
             // 手札にマリョク種別が無いターンが続くと配置権を捨て続け、魔力レベルが止まって
