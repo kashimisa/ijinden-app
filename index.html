@@ -332,22 +332,22 @@
          霧は墨の濃淡で引いた横霞の帯：SVGの乱流変形（#sumiEdge1/2）で輪郭に筆の掠れと滲みを付け、晴れる時は墨の帯が左右に割れて開く */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
-        transition:opacity .35s ease, visibility 0s linear .35s;
+        transition:opacity .8s ease, visibility 0s linear .8s;
       }
-      .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .3s ease; }
+      .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .8s ease; }
       .di-svgdefs{ position:absolute; width:0; height:0; overflow:hidden; }
-      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 1.45s ease;
+      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 2.8s ease;
         background:
           radial-gradient(ellipse at 50% 40%, rgba(88,92,102,.5) 0%, rgba(30,31,36,0) 56%),
           linear-gradient(180deg, #0e0f12 0%, #17181d 46%, #060708 100%); }
       .dive-intro.clear .di-bg{ opacity:0; }
       /* 水墨画の一枚絵：霧の下からゆっくり浮かび上がり（わずかにズームアウトしながら）、晴れる時に霧と一緒に消える */
       .di-art{ position:absolute; inset:0; background-image:url("assets/dive_intro.jpg"); background-size:cover; background-position:center;
-        opacity:0; transform:scale(1.07); transition:opacity 1.5s ease, transform 3.6s ease; }
+        opacity:0; transform:scale(1.07); transition:opacity 2.8s ease, transform 6.5s ease; }
       .dive-intro.on .di-art{ opacity:1; transform:scale(1); }
-      .dive-intro.clear .di-art{ opacity:0; transition:opacity 1.2s ease, transform 1.2s ease; }
+      .dive-intro.clear .di-art{ opacity:0; transition:opacity 2.6s ease, transform 2.6s ease; }
       .di-fog{ position:absolute; left:-14vw; width:128vw; pointer-events:none; opacity:.92;
-        transition:opacity 1.45s ease, transform 1.45s cubic-bezier(.3,.6,.3,1); }
+        transition:opacity 2.8s ease, transform 2.8s cubic-bezier(.3,.6,.3,1); }
       /* 横霞の帯：淡い墨の洗い＋濃い墨の帯を重ね、細い横線の重なりで筆の筋を出す */
       .di-fog.f1{ height:48vh; top:-6%; filter:url(#sumiEdge1); animation:diDrift1 8s ease-in-out infinite alternate;
         background:
@@ -6512,7 +6512,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
         if (diveIntroResolve){ const r0 = diveIntroResolve; diveIntroResolve = null; r0(); }
         const rm = reducedMotion();
-        const clearAt = rm ? 750 : 2000;   // ロゴを見せてから霧が晴れ始めるまで
+        const clearAt = rm ? 750 : 4200;   // ロゴを見せてから霧が晴れ始めるまで（ゆっくり眺められるよう長めに保持）
         const done = new Promise(function(res){ diveIntroResolve = res; });
         const finish = function(){
           diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
@@ -6524,14 +6524,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const toClear = function(){
           if (diveIntroPhase !== 0) return;
           diveIntroPhase = 1;
-          ov.classList.add("clear"); // 霧と一枚絵が約1.3秒かけて消え、後ろの盤面が現れる
-          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 1350));
+          ov.classList.add("clear"); // 霧と一枚絵が約2.8秒かけてゆっくり消え、後ろの盤面が現れる
+          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 2900));
         };
         diveIntroPhase = 0;
         ov.classList.remove("clear"); ov.classList.remove("on"); void ov.offsetWidth;
         diveIntroTimers.push(setTimeout(function(){ ov.classList.add("on"); }, 40));
         diveIntroTimers.push(setTimeout(toClear, clearAt));
-        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 3600)); // 保険：必ず終わる
+        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 7400)); // 保険：必ず終わる
         ov.onclick = function(){ // タップでスキップ（霧を晴らす→即終了）
           if (diveIntroPhase === 0) toClear();
           else if (diveIntroPhase === 1) finish();
