@@ -9,6 +9,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
+    <!-- DARK SUMI遷移の層PNGを先読みし、タップ直後から滑らかに始まるようにする -->
+    <link rel="preload" as="image" href="assets/darksumi_deep.png" />
+    <link rel="preload" as="image" href="assets/darksumi_mid.png" />
+    <link rel="preload" as="image" href="assets/darksumi_gold.png" />
     <!-- 対戦開始イントロの墨雲画像はページ読み込み時に先読みし、「始める」を押した瞬間に表示できるようにする -->
     <link rel="preload" as="image" href="assets/dive_fogbg.jpg" />
     <style>
@@ -64,114 +68,162 @@
       #scr-mode .logo-btn:active{ border-color:transparent; }
       /* タイトル画面：モード選択パネル（枠・箱・説明文）は置かず、Diveボタン画像だけをページ背景の上に直接置く */
       #scr-mode .dive-btn{ display:block; width:100%; margin:22px 0 2px; }
+      /* Diveボタン専用の「重い」押し心地：深めに沈み（下へ4px＋scale .97）、影が潰れて台にめり込む感じにする。
+         沈むのは約200msの重みのあるイージング、離したときの戻りは跳ね返さず約450msでしっとり減衰する。
+         軍団編成・オンラインボタン（.logo-btn共通の軽い押し心地）は変えない */
+      #btn-mode-cpu{ transition:transform .45s cubic-bezier(.16,.84,.3,1), filter .45s cubic-bezier(.16,.84,.3,1); }
+      #btn-mode-cpu:active{ transform:translateY(4px) scale(.97); filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); transition:transform .2s cubic-bezier(.25,.8,.35,1), filter .2s cubic-bezier(.25,.8,.35,1); }
+      @media (prefers-reduced-motion: reduce){ #btn-mode-cpu, #btn-mode-cpu:active{ transition:none; } }
       /* 軍団編成ボタン：Diveボタンと同じ pill 画像ボタン。少し小さくして格の違いを出す */
       #scr-mode .gundan-btn{ display:block; width:88%; margin:16px auto 2px; }
-      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。合計2.2秒・タップでスキップ可） ----------
-         最初から最後まで1本の連続キーフレーム（2.2s）で、暗転→墨のにじみ→多層の霧→
-         濃紺へのクロスフェードが継ぎ目なく流れる。段階式のクラス切替はしない。
-         霧は素材画像を使わず、絵柄のない白〜薄グレーのぼかしグラデーション層だけで作る。
-         同心円リング・中心の強いグロー類は置かない。
-         v4：霧の「左右に開く」は透明度でなく本物の横移動でやる。奥・中間とも左側の層は画面左端へ、
-         右側の層は画面右端へ transform で大きく（50vw超）流れて画面外へ去り、中央に空間が開いて
-         そこから濃紺とパネルが見えてくる。移動中も不透明度を高めに保ち、「薄くなって消えた」
-         印象にならないようにする。墨は合流直前までの輪郭保持をさらに延ばし、全面が明るい霧に
-         覆われる plateau は v3 より約0.2〜0.3秒短くする（切替点 50%＝1.1秒の濃さは維持）。 */
+      /* ---------- ダイブ演出「DARK SUMI」動作試作（タイトル→デッキ選択の入口だけ。合計2.2秒・タップでスキップ可） ----------
+         みさの参考画像から抽出した層PNG 3枚（assets/darksumi_deep.png＝深い黒の溜まり、
+         darksumi_mid.png＝灰色のにじみ・墨の渦（薄い外周のハローを削り筆のかすれ・毛先を残したv2版）、
+         darksumi_gold.png＝金の川＋金粉）を
+         濃紺（#080B12〜#111A2D の縦グラデーション）の上に重ねる。3層を重ねた静止画が
+         デザイン基準（darksumi_still_v3）。白・ホワイトアウトは一切使わない。
+         動きは層ごとに独立させる（絵全体を一枚として動かすのは禁止）。にじみ・渦の層は
+         同じ素材を3枚に分け、渦の中心ごとに transform-origin・速度・方向・回転量をずらして
+         流す／わずかに回転させる（全層同方向・同速度は禁止）。scale の膨張は最小限にし、
+         主に移動と回転で見せる（灰色のにじみを煙のように膨らませない、強いぼかしも使わない）。
+         金の川には、金の層の形でマスクした柔らかい光の帯が一回だけゆっくり通過する
+         （発光・フラッシュ・電流のような光らせ方は禁止）。
+         構成は4幕（画面切替は最も暗い瞬間＝約1.1秒）：
+         ①0.00〜0.40秒 墨が目覚める：にじみ層がわずかに広がりながらフェードインし、渦が動き始める。
+           金粉がわずかに漂い始める。金の川はまだ大きく動かさない
+         ②0.40〜1.05秒 墨の流れが強くなる：3枚のにじみ・渦が異なる速度・方向で流れ、金の川に沿って光が一回通過する
+         ③1.05〜1.25秒 墨が世界を覆う：黒の溜まり層がわずかに拡大して中央へ寄り、全体が最も暗くなる
+           （裏側でデッキ選択へ切替）。金の川は最後に少しだけ見えて消える
+         ④1.25〜2.20秒 墨が流れ去る：黒の溜まりが先に引き、にじみ・渦の層が少し遅れて流れ去り、
+           金粉（金の層）が最後に消える。隙間からデッキ選択画面が現れる（到着後の出現は現行通り）
+         層は画像5枚まで（溜まり1＋にじみ3＋金1）。動きは transform/opacity 中心でスマホでも滑らかに。 */
       #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden; transition:opacity .35s ease, visibility 0s linear .35s; }
       #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .08s ease; }
       #dive-overlay.out{ opacity:0 !important; }
       #dive-overlay > div{ position:absolute; opacity:0; pointer-events:none; }
-      /* 暗転層：押した直後からゆっくり暗くなり、霧が晴れるにつれて抜けていく */
-      #dive-overlay .dv-dark{ inset:0; background:#04060c; }
-      #dive-overlay.run .dv-dark{ animation:dvDark 2.2s ease-in-out both; }
-      @keyframes dvDark{ 0%{ opacity:0; } 13%{ opacity:.5; } 44%{ opacity:.78; } 70%{ opacity:.4; } 100%{ opacity:0; } }
-      /* 墨：ボタン中心ではなく離れた4か所から、不規則な輪郭で滲み広がって互いに合流する。
-         v4：ぼかしの立ち上がりをさらに遅らせ（合流点64%でも10px）、明るい霧が重なっても
-         合流の瞬間まで輪郭が追えるようにする。溶け始めるのは76%以降。
-         4か所はそれぞれ違う方向（--tx/--ty：中央へ寄る向き）へ違う速度（duration）で広がるので、
-         近づいて合流していく過程が目で追える。合流前に画面全体を均一な霧で覆わないよう、霧側の
-         立ち上がりも遅らせてある（下の dvFogBackL/R / dvFogMidL/R 参照）。 */
-      .dv-ink{ width:72vmax; height:72vmax; margin:-36vmax 0 0 -36vmax; filter:blur(6px);
-        background:radial-gradient(closest-side, rgba(16,19,28,.94) 0%, rgba(20,24,36,.78) 46%, rgba(24,29,42,.4) 72%, rgba(24,29,42,0) 100%); }
-      .dv-ink.i1{ left:16%; top:26%; border-radius:58% 42% 63% 37% / 45% 58% 42% 55%; --is:1.25; --ir:-7deg; --tx:6vw; --ty:4vh; }
-      .dv-ink.i2{ left:82%; top:18%; border-radius:41% 59% 38% 62% / 60% 40% 57% 43%; --is:1.1; --ir:6deg; --tx:-7vw; --ty:5vh; }
-      .dv-ink.i3{ left:26%; top:82%; border-radius:63% 37% 44% 56% / 39% 61% 44% 56%; --is:1.18; --ir:5deg; --tx:5vw; --ty:-6vh; }
-      .dv-ink.i4{ left:76%; top:76%; border-radius:47% 53% 59% 41% / 55% 43% 60% 40%; --is:1.32; --ir:-5deg; --tx:-6vw; --ty:-5vh; }
-      #dive-overlay.run .dv-ink{ animation:dvInk 2.16s cubic-bezier(.35,.05,.3,1) both; will-change:transform, opacity, filter; }
-      #dive-overlay.run .dv-ink.i2{ animation-duration:1.98s; animation-delay:.06s; }
-      #dive-overlay.run .dv-ink.i3{ animation-duration:2.13s; animation-delay:.12s; }
-      #dive-overlay.run .dv-ink.i4{ animation-duration:2.08s; animation-delay:.03s; }
-      @keyframes dvInk{
-        0%{ opacity:0; transform:translate(0,0) scale(.1) rotate(0deg); filter:blur(4px); }
-        10%{ opacity:.92; }
-        30%{ opacity:.94; transform:translate(calc(var(--tx,0px) * .35), calc(var(--ty,0px) * .35)) scale(calc(var(--is,1.2) * .55)) rotate(calc(var(--ir,0deg) * .4)); filter:blur(5px); }
-        50%{ opacity:.95; transform:translate(calc(var(--tx,0px) * .75), calc(var(--ty,0px) * .75)) scale(calc(var(--is,1.2) * .85)) rotate(calc(var(--ir,0deg) * .75)); filter:blur(7px); }
-        64%{ opacity:.94; transform:translate(var(--tx,0px), var(--ty,0px)) scale(var(--is,1.2)) rotate(var(--ir,0deg)); filter:blur(10px); }
-        76%{ opacity:.82; transform:translate(var(--tx,0px), var(--ty,0px)) scale(calc(var(--is,1.2) * 1.08)) rotate(var(--ir,0deg)); filter:blur(14px); }
-        88%{ opacity:.38; filter:blur(19px); }
-        100%{ opacity:0; transform:translate(var(--tx,0px), var(--ty,0px)) scale(calc(var(--is,1.2) * 1.3)) rotate(var(--ir,0deg)); filter:blur(24px); }
+      /* 基調層：漆黒→濃紺。押した直後に立ち上がって画面を覆い、墨が引く後半に連れて薄れ、
+         下のデッキ選択画面（濃紺）が隙間から見えてくる */
+      #dive-overlay .dv-base{ inset:0; background:linear-gradient(163deg, #080B12 0%, #0B1120 52%, #111A2D 100%); }
+      #dive-overlay.run .dv-base{ animation:dvBaseK 2.2s ease-in-out both; }
+      @keyframes dvBaseK{ 0%{ opacity:0; } 8%{ opacity:1; } 54%{ opacity:1; } 88%{ opacity:0; } 100%{ opacity:0; } }
+      /* 墨の層PNG：全画面に cover で敷く。移動・回転で端が覗かないよう少し大きめ（inset:-4%）にし、
+         3層とも同じ箱を使うことで互いの位置合わせ（＝静止画の絵柄）を保つ */
+      #dive-overlay .dv-img{ inset:-4%; background-repeat:no-repeat; background-position:center; background-size:cover; will-change:transform, opacity; }
+      /* 黒の溜まり層：③でわずかに拡大して中央へ寄り全体を最も暗くし、④では一番先に引く */
+      #dive-overlay .dv-deep{ background-image:url(assets/darksumi_deep.png); transform-origin:50% 46%; }
+      #dive-overlay.run .dv-deep{ animation:dvDeepK 2.2s ease-in-out both; }
+      @keyframes dvDeepK{
+        0%{ opacity:0; transform:scale(1.03) translate(0, 1%); }
+        18%{ opacity:.85; transform:scale(1.03) translate(0, .6%); }
+        48%{ opacity:1; transform:scale(1.045) translate(0, .2%); }
+        57%{ opacity:1; transform:scale(1.08) translate(0, 0); }
+        72%{ opacity:.45; transform:scale(1.05) translate(0, -.4%); }
+        86%,100%{ opacity:0; transform:scale(1.03) translate(0, -.8%); }
       }
-      /* 霧：v4は全層で「薄くなって消える」でなく「実際に横へ流れて画面端へ去る」動きにする。
-         奥＝左右2層に分け、ピーク後は不透明度を保ったまま左層は左端へ・右層は右端へ50vw超移動する。
-         中間＝同じく左右へ54vwまで移動し、移動区間（56%〜82%）でも不透明度を .94→.35 と
-         高めに保つので、流れ去る動きそのものが見える。手前＝従来どおり最初に速く横を抜ける。
-         ピークの幅は奥・中間とも 46%〜56% に絞り、plateau を v3 より約0.2〜0.3秒短くする
-         （ただし切替点 50%＝1.1秒では奥＋中間で画面がしっかり隠れる濃さは維持する）。
-         左右の層が画面端へ去ることで中央に空間が開き、そこから濃紺とパネルが見えてくる。 */
-      .dv-fog{ filter:blur(26px); will-change:transform, opacity; }
-      .dv-fog.back{ top:-16%; bottom:-16%; width:110vw; }
-      .dv-fog.back.b1{ left:-27vw; background:radial-gradient(closest-side, rgba(238,240,244,.96), rgba(238,240,244,0) 72%); }
-      .dv-fog.back.b2{ right:-27vw; background:radial-gradient(closest-side, rgba(226,230,238,.94), rgba(226,230,238,0) 72%); }
-      #dive-overlay.run .dv-fog.back.b1{ animation:dvFogBackL 2.2s ease-in-out both; }
-      #dive-overlay.run .dv-fog.back.b2{ animation:dvFogBackR 2.2s ease-in-out both; }
-      @keyframes dvFogBackL{ 0%{ opacity:0; transform:translateX(5vw) scale(1.04); } 18%{ opacity:.3; } 34%{ opacity:.62; transform:translateX(2vw) scale(1.05); } 46%{ opacity:.92; transform:translateX(0) scale(1.06); } 52%{ opacity:.98; transform:translateX(-2vw) scale(1.07); } 58%{ opacity:.93; transform:translateX(-9vw) scale(1.09); } 70%{ opacity:.68; transform:translateX(-26vw) scale(1.13); } 84%{ opacity:.3; transform:translateX(-42vw) scale(1.18); } 100%{ opacity:0; transform:translateX(-56vw) scale(1.24); } }
-      @keyframes dvFogBackR{ 0%{ opacity:0; transform:translateX(-5vw) scale(1.04); } 18%{ opacity:.3; } 34%{ opacity:.62; transform:translateX(-2vw) scale(1.05); } 46%{ opacity:.92; transform:translateX(0) scale(1.06); } 52%{ opacity:.98; transform:translateX(2vw) scale(1.07); } 58%{ opacity:.93; transform:translateX(9vw) scale(1.09); } 70%{ opacity:.68; transform:translateX(26vw) scale(1.13); } 84%{ opacity:.3; transform:translateX(42vw) scale(1.18); } 100%{ opacity:0; transform:translateX(56vw) scale(1.24); } }
-      .dv-fog.mid{ top:-16%; bottom:-16%; width:96vw; }
-      .dv-fog.mid.m1{ left:-30vw; background:radial-gradient(closest-side, rgba(240,242,246,.95), rgba(240,242,246,0) 72%); }
-      .dv-fog.mid.m2{ right:-30vw; background:radial-gradient(closest-side, rgba(233,236,242,.95), rgba(233,236,242,0) 72%); }
-      #dive-overlay.run .dv-fog.mid.m1{ animation:dvFogMidL 2.2s ease-in-out both; }
-      #dive-overlay.run .dv-fog.mid.m2{ animation:dvFogMidR 2.2s ease-in-out both; }
-      @keyframes dvFogMidL{ 0%{ opacity:0; transform:translateX(6vw) scale(1); } 16%{ opacity:.35; } 32%{ opacity:.7; transform:translateX(3vw) scale(1.02); } 44%{ opacity:.9; transform:translateX(1vw) scale(1.04); } 50%{ opacity:.97; transform:translateX(0) scale(1.05); } 56%{ opacity:.94; transform:translateX(-8vw) scale(1.07); } 68%{ opacity:.74; transform:translateX(-22vw) scale(1.11); } 82%{ opacity:.36; transform:translateX(-38vw) scale(1.16); } 100%{ opacity:0; transform:translateX(-54vw) scale(1.22); } }
-      @keyframes dvFogMidR{ 0%{ opacity:0; transform:translateX(-6vw) scale(1); } 16%{ opacity:.35; } 32%{ opacity:.7; transform:translateX(-3vw) scale(1.02); } 44%{ opacity:.9; transform:translateX(-1vw) scale(1.04); } 50%{ opacity:.97; transform:translateX(0) scale(1.05); } 56%{ opacity:.94; transform:translateX(8vw) scale(1.07); } 68%{ opacity:.74; transform:translateX(22vw) scale(1.11); } 82%{ opacity:.36; transform:translateX(38vw) scale(1.16); } 100%{ opacity:0; transform:translateX(54vw) scale(1.22); } }
-      .dv-fog.front{ left:-25vw; right:-25vw; top:34%; height:52%; filter:blur(20px);
-        background:radial-gradient(58% 90% at 50% 50%, rgba(244,245,248,.8), rgba(244,245,248,0) 70%); }
-      #dive-overlay.run .dv-fog.front{ animation:dvFogFront 2.2s ease-in-out both; }
-      @keyframes dvFogFront{ 0%{ opacity:0; transform:translateX(-46vw); } 12%{ opacity:.75; } 26%{ opacity:.8; transform:translateX(-8vw); } 42%{ opacity:.5; transform:translateX(14vw); } 58%{ opacity:.15; transform:translateX(30vw); } 72%{ opacity:0; transform:translateX(40vw); } 100%{ opacity:0; transform:translateX(44vw); } }
-      /* 晴れ際の濃紺クロスフェード：霧が左右へ開く量に連動して少しずつ濃紺が透ける（フラットなグレーで止まらない）。
-         立ち上がりは霧が開き始める 52% 以降に合わせ、ピークは晴れの途中に置く */
-      #dive-overlay .dv-reveal{ inset:0; background:linear-gradient(180deg, #0a0e1a 0, #0d1220 300px, #111830 100%); }
-      #dive-overlay.run .dv-reveal{ animation:dvReveal 2.2s ease-in-out both; }
-      @keyframes dvReveal{ 0%,48%{ opacity:0; } 60%{ opacity:.3; } 74%{ opacity:.55; } 88%{ opacity:.25; } 100%{ opacity:0; } }
-      /* ボタンの沈み込み（押した感触） */
-      .logo-btn.dive-press{ animation:dvPress .45s ease both; }
-      @keyframes dvPress{ 0%{ transform:scale(1); } 35%{ transform:scale(.965) translateY(2px); } 100%{ transform:scale(.985) translateY(1px); } }
-      /* デッキ選択の出現：霧の晴れに連動して パネル→5色タイル（約120ms差）→保存デッキ欄・次へ の順に現れる。
-         v3：パネルは霧の減少カーブに寄せた多段キーフレームで少しずつ鮮明になる（霧が残っているのに
-         パネルだけ急にくっきり出ない）。タイルは間隔120msのまま、開始を霧が晴れ始める側へ寄せ、
-         1枚ごとの透明度変化の始まりが個別に分かるタイミングにする（出現時間を短くして切れを出す）。 */
-      #scr-color1.dive-enter .panel{ animation:dvPanel 1.25s cubic-bezier(.3,.6,.3,1) .05s both; will-change:transform, opacity, filter; }
-      @keyframes dvPanel{ 0%{ opacity:0; transform:translateY(16px); filter:blur(8px); } 45%{ opacity:.45; transform:translateY(9px); filter:blur(5px); } 75%{ opacity:.8; transform:translateY(3px); filter:blur(2px); } 100%{ opacity:1; transform:translateY(0); filter:blur(0); } }
-      #scr-color1.dive-enter .color-btn{ animation:dvTile .55s cubic-bezier(.3,.6,.3,1) both; will-change:transform, opacity, filter; }
-      #scr-color1.dive-enter .color-btn:nth-child(1){ animation-delay:.36s; }
-      #scr-color1.dive-enter .color-btn:nth-child(2){ animation-delay:.48s; }
-      #scr-color1.dive-enter .color-btn:nth-child(3){ animation-delay:.60s; }
-      #scr-color1.dive-enter .color-btn:nth-child(4){ animation-delay:.72s; }
-      #scr-color1.dive-enter .color-btn:nth-child(5){ animation-delay:.84s; }
-      @keyframes dvTile{ from{ opacity:0; transform:translateY(10px) scale(.96); filter:blur(3px); } to{ opacity:1; transform:none; filter:blur(0); } }
-      #scr-color1.dive-enter #saved-pick-wrap, #scr-color1.dive-enter #btn-to-cpu, #scr-color1.dive-enter #btn-back0{ animation:dvFadeUp .7s ease 1s both; }
-      @keyframes dvFadeUp{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+      /* にじみ・渦の層A（主層）：上の渦（46% 6%）を中心に時計回りへ最も大きく流れ、④は少し遅れて流れ去る。
+         3枚の層は中心・回転量（A:+5.2°／B:-4.6°／C:+3.3°）・移動方向・立ち上がりと引き際の
+         タイミングを意図的にずらし、層ごとに違う動きだと感じられるようにする（模様が崩れる範囲は超えない） */
+      #dive-overlay .dv-mid-a{ background-image:url(assets/darksumi_mid.png); transform-origin:46% 6%; }
+      #dive-overlay.run .dv-mid-a{ animation:dvMidAK 2.2s ease-in-out both; }
+      @keyframes dvMidAK{
+        0%{ opacity:0; transform:scale(.982) rotate(0deg) translate(.4%, 1.4%); }
+        16%{ opacity:.8; transform:scale(1) rotate(.8deg) translate(-.2%, .7%); }
+        46%{ opacity:.95; transform:scale(1.018) rotate(2.9deg) translate(-1.8%, -.7%); }
+        55%{ opacity:.95; transform:scale(1.024) rotate(3.4deg) translate(-2.2%, -.9%); }
+        76%{ opacity:.48; transform:scale(1.03) rotate(4.6deg) translate(-3.6%, -1.8%); }
+        93%,100%{ opacity:0; transform:scale(1.036) rotate(5.2deg) translate(-4.4%, -2.3%); }
+      }
+      /* にじみ・渦の層B（複製）：左の渦（16% 48%）を中心に逆回転。Aより遅く・薄く、下方向へ大きく流れる */
+      #dive-overlay .dv-mid-b{ background-image:url(assets/darksumi_mid.png); transform-origin:16% 48%; }
+      #dive-overlay.run .dv-mid-b{ animation:dvMidBK 2.2s ease-in-out both; }
+      @keyframes dvMidBK{
+        0%{ opacity:0; transform:scale(1.024) rotate(0deg) translate(2%, -.2%); }
+        22%{ opacity:.45; transform:scale(1.018) rotate(-.7deg) translate(1.4%, .4%); }
+        47%{ opacity:.62; transform:scale(1.012) rotate(-2.4deg) translate(.3%, 1.6%); }
+        59%{ opacity:.6; transform:scale(1.01) rotate(-2.8deg) translate(-.1%, 2%); }
+        83%{ opacity:.26; transform:scale(1.006) rotate(-3.9deg) translate(-1.2%, 3.2%); }
+        97%,100%{ opacity:0; transform:scale(1.002) rotate(-4.6deg) translate(-1.8%, 3.9%); }
+      }
+      /* にじみ・渦の層C（複製）：右下の渦（82% 76%）を中心に最もゆっくり・小さく回る。3枚の中で一番薄い */
+      #dive-overlay .dv-mid-c{ background-image:url(assets/darksumi_mid.png); transform-origin:82% 76%; }
+      #dive-overlay.run .dv-mid-c{ animation:dvMidCK 2.2s ease-in-out both; }
+      @keyframes dvMidCK{
+        0%{ opacity:0; transform:scale(.988) rotate(0deg) translate(-.6%, 1%); }
+        27%{ opacity:.35; transform:scale(.994) rotate(.5deg) translate(-.4%, .6%); }
+        52%{ opacity:.5; transform:scale(1) rotate(1.7deg) translate(-1.2%, -.2%); }
+        62%{ opacity:.48; transform:scale(1.003) rotate(2deg) translate(-1.4%, -.4%); }
+        87%{ opacity:.16; transform:scale(1.007) rotate(2.8deg) translate(-2.3%, -1.1%); }
+        100%{ opacity:0; transform:scale(1.01) rotate(3.3deg) translate(-2.9%, -1.5%); }
+      }
+      /* 金の川＋金粉の層：序盤はほぼ静止（金粉の漂い程度の微移動）、③の最も暗い瞬間に少しだけ見え、④で最後に消える */
+      #dive-overlay .dv-gold{ background-image:url(assets/darksumi_gold.png); }
+      #dive-overlay.run .dv-gold{ animation:dvGoldLK 2.2s ease-in-out both; }
+      @keyframes dvGoldLK{
+        0%{ opacity:0; transform:translate(0, .8%); }
+        18%{ opacity:.5; transform:translate(-.2%, .5%); }
+        48%{ opacity:.9; transform:translate(-.6%, 0); }
+        57%{ opacity:1; transform:translate(-.7%, -.1%); }
+        74%{ opacity:.55; transform:translate(-1%, -.4%); }
+        92%,100%{ opacity:0; transform:translate(-1.3%, -.7%); }
+      }
+      /* 金の川に沿う光の移動：金の層の形でマスクした柔らかい光の帯が、②の間に一回だけゆっくり通過する。
+         マスク位置が金の層とずれないよう、光の帯も .dv-img として金の層と全く同じ箱（inset:-4%・
+         cover・中央配置）を使い、transform は金の層の dvGoldLK と同一軌跡の dvGoldTK を併走させて、
+         移動中も常に金の川の真上に乗り続けるようにする。
+         位置合わせ（箱・transform同期）はそのままに、光の帯が走るタイミング（dvShineK）だけを
+         0.15秒遅らせ、墨と金の本体の動きからわずかに独立して流れている印象を加える */
+      #dive-overlay .dv-shine{ opacity:0;
+        background:linear-gradient(100deg, rgba(255,244,214,0) 32%, rgba(255,244,214,.34) 50%, rgba(255,244,214,0) 68%);
+        background-size:260% 100%; background-repeat:no-repeat;
+        -webkit-mask-image:url(assets/darksumi_gold.png); mask-image:url(assets/darksumi_gold.png);
+        -webkit-mask-size:cover; mask-size:cover; -webkit-mask-position:center; mask-position:center; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat; }
+      #dive-overlay.run .dv-shine{ animation:dvGoldTK 2.2s ease-in-out both, dvShineK 2.2s ease-in-out both; animation-delay:0s, .15s; }
+      /* 金の層 dvGoldLK の transform 軌跡だけを抜き出したもの（キー位置・値・タイミングを完全一致させる） */
+      @keyframes dvGoldTK{
+        0%{ transform:translate(0, .8%); }
+        18%{ transform:translate(-.2%, .5%); }
+        48%{ transform:translate(-.6%, 0); }
+        57%{ transform:translate(-.7%, -.1%); }
+        74%{ transform:translate(-1%, -.4%); }
+        92%,100%{ transform:translate(-1.3%, -.7%); }
+      }
+      @keyframes dvShineK{
+        0%,16%{ opacity:0; background-position:0% 0; }
+        30%{ opacity:.5; }
+        52%{ opacity:.5; background-position:100% 0; }
+        64%,100%{ opacity:0; background-position:100% 0; }
+      }
+      /* ボタンの沈み込み（押した感触）：クリック直後の保持状態も :active の深い沈み込みにそろえ、
+         押した瞬間から墨が被るまで同じ「めり込んだ」姿勢を保つ（跳ね返りは付けない） */
+      .logo-btn.dive-press{ animation:dvPress .45s cubic-bezier(.25,.8,.35,1) both; }
+      @keyframes dvPress{ 0%{ transform:translateY(4px) scale(.97); filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); } 100%{ transform:translateY(3px) scale(.975); filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); } }
+      /* デッキ選択の出現（最終仕上げ）：出現は3段階に分け、中途半端に透けて見える時間を作らない。
+         ①墨が濃い間（切替から約0.5秒）はパネル・文字・タイルすべて不透明度0のまま一切見せない。
+           この間に墨が引き始め、まず背景（濃紺の地）だけが隙間から見える
+         ②墨が引き始めたらパネルだけが短時間でくっきり現れる（不透明度はアニメーションの
+           前半で1に到達させ、半透明の状態に留まる時間を最小にする。ぼかしも前半で抜ける）
+         ③最後に見出しの文字→5色タイル（約100ms差）→保存デッキ欄・次への順に、ぼかし無しで
+           鮮明に現れる。全体の2.2秒構成と切替タイミング（約1.1秒）は従来どおりで、
+           変えたのは到着側の開始遅延と不透明度の配分だけ */
+      #scr-color1.dive-enter .panel{ animation:dvPanel .45s cubic-bezier(.3,.6,.3,1) .5s both; will-change:transform, opacity, filter; }
+      @keyframes dvPanel{ 0%{ opacity:0; transform:translateY(12px); filter:blur(5px); } 50%{ opacity:1; filter:blur(0); } 100%{ opacity:1; transform:translateY(0); filter:blur(0); } }
+      /* 見出しの文字はパネルの器が鮮明になってから出す（パネル完了＝0.95秒の直後） */
+      #scr-color1.dive-enter #color1-title{ animation:dvTitle .3s ease-out .95s both; will-change:transform, opacity; }
+      @keyframes dvTitle{ from{ opacity:0; transform:translateY(5px); } to{ opacity:1; transform:none; } }
+      #scr-color1.dive-enter .color-btn{ animation:dvTile .35s cubic-bezier(.3,.6,.3,1) both; will-change:transform, opacity, filter; }
+      #scr-color1.dive-enter .color-btn:nth-child(1){ animation-delay:1.02s; }
+      #scr-color1.dive-enter .color-btn:nth-child(2){ animation-delay:1.12s; }
+      #scr-color1.dive-enter .color-btn:nth-child(3){ animation-delay:1.22s; }
+      #scr-color1.dive-enter .color-btn:nth-child(4){ animation-delay:1.32s; }
+      #scr-color1.dive-enter .color-btn:nth-child(5){ animation-delay:1.42s; }
+      @keyframes dvTile{ 0%{ opacity:0; transform:translateY(9px) scale(.965); filter:blur(3px); } 55%{ opacity:1; filter:blur(0); } 100%{ opacity:1; transform:none; filter:blur(0); } }
+      #scr-color1.dive-enter #saved-pick-wrap, #scr-color1.dive-enter #btn-to-cpu, #scr-color1.dive-enter #btn-back0{ animation:dvFadeUp .38s ease-out 1.48s both; }
+      @keyframes dvFadeUp{ 0%{ opacity:0; transform:translateY(8px); } 55%{ opacity:1; } 100%{ opacity:1; transform:none; } }
       /* タップでスキップしたときは出現を短く切り上げる */
-      #scr-color1.dive-enter.fast .panel{ animation-duration:.4s; }
+      #scr-color1.dive-enter.fast .panel{ animation-duration:.4s; animation-delay:0s; }
+      #scr-color1.dive-enter.fast #color1-title{ animation-duration:.3s; animation-delay:.05s; }
       #scr-color1.dive-enter.fast .color-btn{ animation-duration:.35s; animation-delay:0s; }
       #scr-color1.dive-enter.fast #saved-pick-wrap, #scr-color1.dive-enter.fast #btn-to-cpu, #scr-color1.dive-enter.fast #btn-back0{ animation-duration:.35s; animation-delay:.05s; }
-      /* 遷移後もデッキ選択画面の端にだけ残る薄い霧（タイルや文字の上には重ねない） */
-      #deck-ambient{ position:fixed; inset:0; z-index:60; pointer-events:none; overflow:hidden; opacity:0; visibility:hidden; transition:opacity 1.2s ease, visibility 0s linear 1.2s; }
-      #deck-ambient.on{ opacity:1; visibility:visible; transition:opacity 1.2s ease; }
-      #deck-ambient .amb{ position:absolute; width:70vw; height:34vh; filter:blur(30px); opacity:.13; background:radial-gradient(closest-side, rgba(235,238,244,.9), rgba(235,238,244,0) 72%); }
-      #deck-ambient .amb.a1{ left:-38vw; top:-14vh; animation:ambDrift 11s ease-in-out infinite alternate; }
-      #deck-ambient .amb.a2{ right:-38vw; top:-12vh; animation:ambDrift 13s ease-in-out infinite alternate-reverse; }
-      #deck-ambient .amb.a3{ right:-40vw; bottom:-16vh; animation:ambDrift 15s ease-in-out infinite alternate; }
-      @keyframes ambDrift{ from{ transform:translateX(0); } to{ transform:translateX(6vw); } }
-      @media (prefers-reduced-motion: reduce){ #deck-ambient .amb{ animation:none; } }
       /* タイトル画面：濃紺＋金の世界観。キービジュアルは切り取らず全体を表示し、下端を背景色へ自然にフェードさせる */
       #scr-mode{ margin:-14px -12px -40px; padding:0 12px 44px; background:linear-gradient(180deg, #070a12 0, #0d1220 340px, #131a2e 640px, #10182c 100%); color:#e9e2cf; }
       .title-hero{ position:relative; margin:0 -12px; line-height:0; background:#070a12; }
@@ -1294,7 +1346,7 @@
         <div class="db-head">
           <h2 style="margin:2px 0 0; font-size:1.15rem;">③ デッキ構築（<span id="db-color-name"></span>）<span id="db-who" style="font-size:.85rem; color:var(--accent);"></span></h2>
           <div class="db-count">
-            <span class="num"><span id="db-total">0</span><small> / 40枚</small></span>
+            <span class="num"><span id="db-total">0</span><small> 枚</small></span>
             <span style="font-size:.78rem; color:var(--ink2); font-weight:700;">同名は4枚まで</span>
           </div>
           <div class="meter"><i id="db-meter"></i></div>
@@ -1315,7 +1367,7 @@
         <div class="db-footer" id="db-footer">
           <div class="dbf-in">
             <div class="dbf-row">
-              <span class="dbf-count"><span id="dbf-total">0</span><small> / 40枚</small></span>
+              <span class="dbf-count"><span id="dbf-total">0</span><small> 枚</small></span>
               <span class="dbf-break" id="dbf-breakdown"></span>
             </div>
             <button class="dbf-draft" id="btn-draft-save" type="button" style="display:none;">途中保存</button>
@@ -5848,8 +5900,6 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         document.querySelectorAll(".screen").forEach(function(el){ el.classList.remove("on"); });
         $(id).classList.add("on");
         document.body.classList.toggle("in-battle", id === "scr-battle");
-        const amb = $("deck-ambient");
-        if (amb) amb.classList.toggle("on", id === "scr-color1" && !reducedMotion());
         window.scrollTo(0,0);
       }
 
@@ -5930,6 +5980,80 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         });
         return arr;
       }
+      /* ================= おすすめ編成（バランス型） =================
+         目標配分は実デッキの比率が基準：イジン16／マホウ8／ハイケイ4／マリョク12＝40枚ちょうど。
+         単色・2色ミックス共通（ミックスは2色のプール合算から同じ配分で組む）。
+         - イジン：レベル帯を散らす。低Lv（1〜3）を厚め、中Lv（4〜6）を次に、高Lv（7以上）は上位1〜2種を少枚数。
+           帯の中ではパワーと「効果テキスト・遺業の有無」で優先順位を付ける。
+         - マリョク：マリョク種別のカードから選ぶ（表向き配置で基盤を作るため）。
+           復元などの遺業持ちを優先し、レベルも散らす。
+         - マホウ：魔力コストが軽い順（同コストなら低レベル順）。
+         - ハイケイ：プールにあるものから（目標に届かない色はあるだけ）。
+         同名は4枚まで。ある種別が目標に届かない場合は マリョク→イジン の順に増やして必ず合計40枚にする。 */
+      function buildRecommended(colors){
+        const pool = poolForColors(colors);
+        const byClass = { "イジン": [], "マホウ": [], "ハイケイ": [], "マリョク": [] };
+        pool.forEach(function(c){
+          let cl = classOf(c); if (cl === "マホウ・他") cl = "マホウ";
+          if (byClass[cl]) byClass[cl].push(c);
+        });
+        const hasLegacy = function(c){ return !!(c.lk || (c.legacyText && c.legacyText.trim()) || legacyKind(c.name)); };
+        const byName = function(a, b){ return a.name.localeCompare(b.name, "ja"); };
+        const picked = {};
+        let total = 0;
+        function add(c, n){
+          const take = Math.max(0, Math.min(n, 4 - (picked[c.name] || 0))); // 同名4枚まで
+          if (take > 0){ picked[c.name] = (picked[c.name] || 0) + take; total += take; }
+          return take;
+        }
+        // 優先順リストの上から2枚ずつ配り、足りなければもう一周して同名4枚まで厚くする（種類を散らす）
+        function fill(list, target){
+          let got = 0;
+          for (let round = 0; round < 2 && got < target; round++){
+            for (let i = 0; i < list.length && got < target; i++) got += add(list[i], Math.min(2, target - got));
+          }
+          return got;
+        }
+        /* ---- イジン16：帯ごとに配分（低8／中5／高3） ---- */
+        const ijinScore = function(c){ return (c.power || 0) + (c.text && c.text.trim() ? 1000 : 0) + (hasLegacy(c) ? 500 : 0); };
+        const ijins = byClass["イジン"].slice().sort(function(a, b){
+          return (ijinScore(b) - ijinScore(a)) || (a.level - b.level) || byName(a, b);
+        });
+        const bandLow  = ijins.filter(function(c){ return c.level <= 3; });
+        const bandMid  = ijins.filter(function(c){ return c.level >= 4 && c.level <= 6; });
+        const bandHigh = ijins.filter(function(c){ return c.level >= 7; }).slice(0, 2); // 高Lvは1〜2種だけ
+        let nIjin = 0;
+        nIjin += fill(bandLow, Math.min(8, 16 - nIjin));
+        nIjin += fill(bandMid, Math.min(5, 16 - nIjin));
+        nIjin += fill(bandHigh, Math.min(3, 16 - nIjin));
+        if (nIjin < 16) nIjin += fill(ijins, 16 - nIjin); // 帯で届かない分はイジン全体から補う
+        /* ---- マリョク12：復元などの遺業持ちを優先し、レベルも散らす ---- */
+        const maryokuRank = function(c){
+          if (c.lk === "fukugen" || (c.legacyText && c.legacyText.indexOf("復元") >= 0)) return 0;
+          if (hasLegacy(c)) return 1;
+          return 2;
+        };
+        const maryoku = byClass["マリョク"].slice().sort(function(a, b){
+          return (maryokuRank(a) - maryokuRank(b)) || (a.level - b.level) || byName(a, b);
+        });
+        fill(maryoku, 12);
+        /* ---- マホウ8：コストが軽く汎用的なものを優先 ---- */
+        const mahou = byClass["マホウ"].slice().sort(function(a, b){
+          return ((a.cost || 0) - (b.cost || 0)) || (a.level - b.level) || byName(a, b);
+        });
+        fill(mahou, 8);
+        /* ---- ハイケイ4：プールにあるものから（低レベル順） ---- */
+        const haikei = byClass["ハイケイ"].slice().sort(function(a, b){ return (a.level - b.level) || byName(a, b); });
+        fill(haikei, 4);
+        /* ---- 不足分は マリョク→イジン の順に増やして40枚にそろえる ---- */
+        if (total < 40) fill(maryoku, 40 - total);
+        if (total < 40) fill(ijins, 40 - total);
+        if (total < 40) fill(mahou, 40 - total);
+        if (total < 40) fill(haikei, 40 - total);
+        const names = [];
+        Object.keys(picked).forEach(function(n){ for (let i = 0; i < picked[n]; i++) names.push(n); });
+        return names;
+      }
       const ORB_FILE = {"赤":"red","青":"blue","緑":"green","黄":"yellow","紫":"purple"};
       function buildColorGrid(gridId, onPick){
         const g = $(gridId); g.innerHTML = "";
@@ -5982,12 +6106,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBuilder();
         show("scr-build");
       }
-      /* ダイブ演出：タイトル→デッキ選択の入口だけ。合計2.2秒・1本の連続アニメーション。
-         ボタンがわずかに沈み、画面が自然に暗転し、離れた4か所から墨が弱いぼかしのまま
-         異なる方向・速度で滲み広がって合流する（合流直前まで輪郭を保持）。霧は全層が実際に
-         左右へ大きく横移動して画面端へ流れ去り（奥・中間は左右2層がそれぞれ50vw超）、中央に
-         空間が開いて濃紺とパネルが見えてくる「谷間を抜ける」動き。一番濃い約1.1秒の時点で
-         裏側の画面を切り替え、霧が晴れる量に連動して濃紺とパネルが少しずつ見え、
+      /* ダイブ演出「DARK SUMI」動作試作：タイトル→デッキ選択の入口だけ。合計2.2秒。
+         ボタンがわずかに沈み、濃紺の基調層の上で、参考画像から抽出した墨の層PNG 3枚
+         （黒の溜まり／にじみ・渦／金の川＋金粉）が層ごとに独立して動く。にじみ・渦の層は
+         同じ素材を3枚に分けて速度・方向・回転をずらし、金の川には光の帯が一回だけ通過する。
+         最も暗い約1.1秒の時点で裏側の画面を切り替え、後半は黒の溜まり→にじみ・渦→金粉の
+         順に時間差で引いて、隙間から濃紺とパネルが見えてきて、
          5色タイル（約120ms差）→保存デッキ欄・次への順に現れる。
          タップでスキップ可。動きを減らす設定では即時遷移する。 */
       let diveTimers = [], diveFinished = true, diveSwitched = false;
@@ -6006,9 +6130,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         btn.classList.add("dive-press");
         ov.classList.add("on");
         requestAnimationFrame(function(){ requestAnimationFrame(function(){ if (!diveFinished) ov.classList.add("run"); }); });
-        /* 約1.1秒：霧が一番濃い瞬間に裏で画面を切り替える（素の画面は見えない） */
+        /* 約1.1秒：墨が一番濃い瞬間に裏で画面を切り替える（素の画面は見えない） */
         diveTimers.push(setTimeout(function(){ if (!diveSwitched){ diveSwitched = true; go(false); } }, 1100));
-        /* 2.2秒：全層が流れ去ったところでオーバーレイを外す（見た目は変わらない） */
+        /* 2.2秒：墨が引ききったところでオーバーレイを外す（見た目は変わらない） */
         diveTimers.push(setTimeout(function(){ diveFinished = true; diveCleanup(); }, 2280));
         ov.onclick = function(){
           if (diveFinished) return;
@@ -6044,9 +6168,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       });
       $("btn-to-build").addEventListener("click", function(){
         if (S.gameMode === "2p") startBuild("C");
-        else if (S.useSavedDeck && S.lastDecks.P && S.lastDecks.P.length === 40){
+        else if (S.useSavedDeck && S.lastDecks.P && S.lastDecks.P.length >= 40){
           // 保存したデッキを使用：構築を飛ばしてそのまま対戦開始へ
-          S.lastDecks.C = (APPDATA.recommended[S.cpuColor] || []).slice();
+          S.lastDecks.C = buildRecommended([S.cpuColor]);
           askFirstAndStart(S.lastDecks.P.slice(), S.lastDecks.C.slice());
         }
         else startBuild("P");
@@ -6198,7 +6322,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         resetDbFilters(); renderBuilder(); show("scr-build");
       }
       function finishGundanBuild(){
-        if (deckTotal() !== 40) return;
+        if (deckTotal() < 40) return;
         if (S.editDeckId){
           askDeckName(S.editDeckName, "上書き保存", function(nm){
             const list = loadMyDecks();
@@ -6218,7 +6342,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       function draftSaveGundan(){
         if (S.buildCtx !== "gundan") return;
         const total = deckTotal();
-        if (total === 0 || total === 40) return;
+        if (total === 0 || total >= 40) return;
         if (S.editDeckId){
           askDeckName(S.editDeckName, "途中保存する", function(nm){
             const list = loadMyDecks();
@@ -6265,7 +6389,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       });
       /* デッキ構築画面から「名前を付けて保存」（対戦用の通常構築のときだけ出す） */
       $("btn-save-deck").addEventListener("click", function(){
-        if (S.buildCtx === "gundan" || deckTotal() !== 40) return;
+        if (S.buildCtx === "gundan" || deckTotal() < 40) return;
         askDeckName("", "保存する", function(nm){
           saveDeckAsNew(nm, S.buildColor, S.deckSel);
           const sv = $("btn-save-deck");
@@ -6320,8 +6444,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("btn-back2").textContent = S.gameMode === "2p" ? (S.buildTarget === "C" ? "プレイヤー2の色を選び直す" : "色を選び直す") : "CPUの色を選び直す";
         const total = deckTotal();
         $("db-total").textContent = total;
-        $("db-meter").style.width = (total/40*100) + "%";
-        $("btn-start-battle").disabled = (total !== 40);
+        $("db-meter").style.width = Math.min(100, total/40*100) + "%";
+        $("btn-start-battle").disabled = (total < 40);
         // breakdown
         const bd = {"イジン":0,"マホウ":0,"ハイケイ":0,"マリョク":0,"マホウ・他":0,"その他":0};
         Object.keys(S.deckSel).forEach(function(n){
@@ -6337,7 +6461,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         $("dbf-total").textContent = total;
         $("dbf-breakdown").textContent = "イジン " + (bd["イジン"]||0) + " ・ マホウ " + ((bd["マホウ"]||0)+(bd["マホウ・他"]||0)) + " ・ ハイケイ " + (bd["ハイケイ"]||0) + " ・ マリョク " + (bd["マリョク"]||0);
         const sb2 = $("btn-start-battle2");
-        sb2.disabled = (total !== 40);
+        sb2.disabled = (total < 40);
         sb2.textContent = (S.gameMode === "2p" && S.buildTarget === "P") ? "プレイヤー1のデッキ決定！次へ" : "対戦スタート！";
         // 軍団編成モード：フッターの主ボタンは保存ボタンになり、「名前を付けて保存」は隠す
         const svBtn = $("btn-save-deck");
@@ -6350,11 +6474,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           svBtn.style.display = "none";
           // 途中保存：40枚未満でも保存できる（軍団編成のときだけ出す。0枚のときと、完成時は通常保存に任せるので無効）
           drBtn.style.display = "";
-          drBtn.disabled = (total === 0 || total === 40);
+          drBtn.disabled = (total === 0 || total >= 40);
           drBtn.textContent = "途中保存（" + total + "/40枚）";
         } else {
           svBtn.style.display = "";
-          svBtn.disabled = (total !== 40);
+          svBtn.disabled = (total < 40);
           drBtn.style.display = "none";
         }
         // オンライン対戦のデッキ構築：主ボタンは「準備OK」になり、戻る先はロビー
@@ -6394,9 +6518,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           }
           const minus = row.querySelector(".minus"), plus = row.querySelector(".plus");
           minus.disabled = n <= 0;
-          plus.disabled = n >= ((c.name === "レッドストーン" || c.name === "イエローストーン" || c.name === "パープルストーン") ? 40 : 4) || total >= 40;
+          plus.disabled = n >= ((c.name === "レッドストーン" || c.name === "イエローストーン" || c.name === "パープルストーン") ? 40 : 4);
           minus.addEventListener("click", function(){ if (S.deckSel[c.name] > 0){ S.deckSel[c.name]--; if (!S.deckSel[c.name]) delete S.deckSel[c.name]; renderBuilder(); } });
-          plus.addEventListener("click", function(){ if ((S.deckSel[c.name]||0) < ((c.name === "レッドストーン" || c.name === "イエローストーン" || c.name === "パープルストーン") ? 40 : 4) && deckTotal() < 40){ S.deckSel[c.name] = (S.deckSel[c.name]||0)+1; renderBuilder(); } });
+          plus.addEventListener("click", function(){ if ((S.deckSel[c.name]||0) < ((c.name === "レッドストーン" || c.name === "イエローストーン" || c.name === "パープルストーン") ? 40 : 4)){ S.deckSel[c.name] = (S.deckSel[c.name]||0)+1; renderBuilder(); } });
           list.appendChild(row);
           if (c.text){
             const t = document.createElement("div");
@@ -6433,20 +6557,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       // おすすめ／リセットは固定フッターのボタンだけ（上部の重複ボタンは廃止）
       $("btn-reset2").addEventListener("click", function(){ S.deckSel = {}; renderBuilder(); });
       $("btn-recommend2").addEventListener("click", function(){
+        // おすすめはバランス型の自動編成（イジン16／マホウ8／ハイケイ4／マリョク12）。
+        // 単色・2色ミックス共通で、構築中の色のプールから buildRecommended が組む
         S.deckSel = {};
-        const cols = curBuildColors();
-        if (cols.length === 2){
-          // 2色ミックスのおすすめ：両色のおすすめ編成を交互に取り、同名4枚まで・合計40枚に収める
-          const A = APPDATA.recommended[cols[0]] || [], B = APPDATA.recommended[cols[1]] || [];
-          let total = 0;
-          for (let i = 0; i < Math.max(A.length, B.length) && total < 40; i++){
-            [A[i], B[i]].forEach(function(n){
-              if (n && CARD[n] && (S.deckSel[n] || 0) < 4 && total < 40){ S.deckSel[n] = (S.deckSel[n]||0)+1; total++; }
-            });
-          }
-        } else {
-          (APPDATA.recommended[S.buildColor] || []).forEach(function(n){ if (CARD[n]) S.deckSel[n] = (S.deckSel[n]||0)+1; });
-        }
+        buildRecommended(curBuildColors()).forEach(function(n){ if (CARD[n]) S.deckSel[n] = (S.deckSel[n]||0)+1; });
         renderBuilder();
       });
       $("btn-start-battle2").addEventListener("click", function(){ $("btn-start-battle").click(); });
@@ -6468,7 +6582,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           configColor2(); show("scr-color2"); // 次はプレイヤー2の色選択
           return;
         }
-        if (S.gameMode !== "2p") S.lastDecks.C = (APPDATA.recommended[S.cpuColor] || []).slice();
+        if (S.gameMode !== "2p") S.lastDecks.C = buildRecommended([S.cpuColor]);
         askFirstAndStart(S.lastDecks.P.slice(), S.lastDecks.C.slice());
       });
 
@@ -9885,7 +9999,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           ? "<span class=\"ok\">接続済み</span>（あなたは" + (NET.isHost() ? "ホスト" : "ゲスト") + "）"
           : (NET.role ? "<span class=\"bad\">切断されました</span>" : "<span class=\"wait\">接続中…</span>"));
         const ms = $("lobby-my-status");
-        if (ms) ms.textContent = NET.myDeck ? "準備OK（" + NET.myColor + "デッキ・40枚）" : "まだ選んでいない";
+        if (ms) ms.textContent = NET.myDeck ? "準備OK（" + NET.myColor + "デッキ・" + NET.myDeck.length + "枚）" : "まだ選んでいない";
         const fs = $("lobby-foe-status");
         if (fs) fs.textContent = NET.foeReady ? "準備OK（" + NET.foeColor + "デッキ）" : "相手がデッキを選択中…";
         const hc = $("lobby-host-ctl"); if (hc) hc.style.display = NET.isHost() ? "" : "none";
@@ -10390,7 +10504,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (!msg || typeof msg !== "object") return;
           if (msg.t === "deck"){
             if (!NET.isHost()) return;
-            if (Array.isArray(msg.names) && msg.names.length === 40 && COLORS.indexOf(msg.color) >= 0 && msg.names.every(function(n){ return !!CARD[n]; })){
+            if (Array.isArray(msg.names) && msg.names.length >= 40 && COLORS.indexOf(msg.color) >= 0 && msg.names.every(function(n){ return !!CARD[n]; })){
               NET.foeDeck = msg.names.slice(); NET.foeColor = msg.color; NET.foeReady = true;
               renderLobby();
             }
@@ -10547,8 +10661,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       })();
     </script>
     <!-- ダイブ演出用オーバーレイ（タイトル→色選択の遷移でのみ使う） -->
-    <div id="dive-overlay" aria-hidden="true"><div class="dv-dark"></div><div class="dv-ink i1"></div><div class="dv-ink i2"></div><div class="dv-ink i3"></div><div class="dv-ink i4"></div><div class="dv-fog back b1"></div><div class="dv-fog back b2"></div><div class="dv-fog mid m1"></div><div class="dv-fog mid m2"></div><div class="dv-fog front"></div><div class="dv-reveal"></div></div>
+    <div id="dive-overlay" aria-hidden="true"><div class="dv-base"></div><div class="dv-img dv-mid-c"></div><div class="dv-img dv-mid-b"></div><div class="dv-img dv-mid-a"></div><div class="dv-img dv-deep"></div><div class="dv-img dv-gold"></div><div class="dv-img dv-shine"></div></div>
     <!-- デッキ選択画面の端にだけ薄く漂い続ける霧（遷移後の余韻） -->
-    <div id="deck-ambient" aria-hidden="true"><div class="amb a1"></div><div class="amb a2"></div><div class="amb a3"></div></div>
   </body>
 </html>
