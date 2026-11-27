@@ -66,24 +66,88 @@
       #scr-mode .dive-btn{ display:block; width:100%; margin:22px 0 2px; }
       /* 軍団編成ボタン：Diveボタンと同じ pill 画像ボタン。少し小さくして格の違いを出す */
       #scr-mode .gundan-btn{ display:block; width:88%; margin:16px auto 2px; }
-      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。約2秒・タップでスキップ可） ---------- */
-      #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .45s ease, visibility 0s linear .45s; }
-      #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .1s ease; }
+      /* ---------- ダイブ演出（タイトル→色選択の入口だけ。合計2.5秒・タップでスキップ可） ----------
+         最初から最後まで1本の連続キーフレーム（2.5s）で、暗転→墨のにじみ→多層の霧→
+         濃紺へのクロスフェードが継ぎ目なく流れる。段階式のクラス切替はしない。
+         霧は素材画像を使わず、絵柄のない白〜薄グレーのぼかしグラデーション層だけで作る。
+         同心円リング・中心の強いグロー類は置かない。 */
+      #dive-overlay{ position:fixed; inset:0; z-index:200; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden; transition:opacity .35s ease, visibility 0s linear .35s; }
+      #dive-overlay.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .08s ease; }
       #dive-overlay.out{ opacity:0 !important; }
-      #dive-overlay .dive-glow{ position:absolute; inset:0; background:radial-gradient(circle at var(--dx,50%) var(--dy,50%), rgba(255,240,200,.9) 0%, rgba(238,205,120,.45) 24%, rgba(238,205,120,0) 58%); opacity:0; }
-      #dive-overlay.go .dive-glow{ animation:diveGlow 2s ease forwards; }
-      @keyframes diveGlow{ 0%{ opacity:0; } 30%{ opacity:.65; } 62%{ opacity:.9; } 100%{ opacity:1; } }
-      #dive-overlay .dive-ring{ position:absolute; left:var(--dx,50%); top:var(--dy,50%); width:130px; height:130px; margin:-65px 0 0 -65px; border-radius:50%; border:3px solid rgba(238,205,122,.95); box-shadow:0 0 26px rgba(238,205,122,.85), inset 0 0 26px rgba(238,205,122,.55); opacity:0; }
-      #dive-overlay.go .dive-ring{ animation:diveRing 1.45s cubic-bezier(.25,.6,.3,1) forwards; }
-      #dive-overlay.go .dive-ring.r2{ animation-delay:.22s; }
-      @keyframes diveRing{ 0%{ transform:scale(.3); opacity:0; } 16%{ opacity:1; } 100%{ transform:scale(10); opacity:0; } }
-      #dive-overlay .dive-flood{ position:absolute; inset:0; background:radial-gradient(circle at var(--dx,50%) var(--dy,50%), #fffdf4 0%, #fdf3d3 34%, #f7e7bb 62%, #f3e2ae 100%); opacity:0; }
-      #dive-overlay.go .dive-flood{ animation:diveFlood 2s ease forwards; }
-      @keyframes diveFlood{ 0%{ opacity:0; } 52%{ opacity:0; } 82%{ opacity:.96; } 100%{ opacity:1; } }
-      .wrap.diving{ transform-origin:var(--dx,50%) var(--dy,50%); animation:diveZoom 1.6s cubic-bezier(.55,.02,.8,.4) forwards; will-change:transform, filter; }
-      @keyframes diveZoom{ from{ transform:scale(1); filter:brightness(1); } to{ transform:scale(2.9); filter:brightness(1.4) saturate(1.12); } }
-      #scr-color1.dive-in{ animation:diveIn .55s ease both; }
-      @keyframes diveIn{ from{ opacity:0; transform:scale(1.045); } to{ opacity:1; transform:scale(1); } }
+      #dive-overlay > div{ position:absolute; opacity:0; pointer-events:none; }
+      /* 暗転層：押した直後からゆっくり暗くなり、霧が晴れるにつれて抜けていく */
+      #dive-overlay .dv-dark{ inset:0; background:#04060c; }
+      #dive-overlay.run .dv-dark{ animation:dvDark 2.5s ease-in-out both; }
+      @keyframes dvDark{ 0%{ opacity:0; } 14%{ opacity:.5; } 46%{ opacity:.78; } 72%{ opacity:.4; } 100%{ opacity:0; } }
+      /* 墨：ボタン中心ではなく離れた4か所から、不規則な輪郭で滲み広がって互いに合流する */
+      .dv-ink{ width:72vmax; height:72vmax; margin:-36vmax 0 0 -36vmax; filter:blur(16px);
+        background:radial-gradient(closest-side, rgba(16,19,28,.92) 0%, rgba(20,24,36,.75) 46%, rgba(24,29,42,.38) 72%, rgba(24,29,42,0) 100%); }
+      .dv-ink.i1{ left:16%; top:26%; border-radius:58% 42% 63% 37% / 45% 58% 42% 55%; --is:1.25; --ir:-7deg; }
+      .dv-ink.i2{ left:82%; top:18%; border-radius:41% 59% 38% 62% / 60% 40% 57% 43%; --is:1.1; --ir:6deg; }
+      .dv-ink.i3{ left:26%; top:82%; border-radius:63% 37% 44% 56% / 39% 61% 44% 56%; --is:1.18; --ir:5deg; }
+      .dv-ink.i4{ left:76%; top:76%; border-radius:47% 53% 59% 41% / 55% 43% 60% 40%; --is:1.32; --ir:-5deg; }
+      #dive-overlay.run .dv-ink{ animation:dvInk 2.5s cubic-bezier(.35,.05,.3,1) both; will-change:transform, opacity; }
+      #dive-overlay.run .dv-ink.i2{ animation-delay:.07s; }
+      #dive-overlay.run .dv-ink.i3{ animation-delay:.13s; }
+      #dive-overlay.run .dv-ink.i4{ animation-delay:.05s; }
+      @keyframes dvInk{
+        0%{ opacity:0; transform:scale(.1) rotate(0deg); }
+        16%{ opacity:.85; }
+        42%{ opacity:.9; transform:scale(var(--is,1.2)) rotate(var(--ir,0deg)); }
+        64%{ opacity:.55; }
+        100%{ opacity:0; transform:scale(calc(var(--is,1.2) * 1.45)) rotate(var(--ir,0deg)); }
+      }
+      /* 霧：層ごとに動きを変える（奥＝ほぼ静止／中間＝ゆっくり左右へ開く／手前＝速く横切る） */
+      .dv-fog{ filter:blur(26px); will-change:transform, opacity; }
+      .dv-fog.back{ inset:-18%; background:
+        radial-gradient(60% 50% at 30% 38%, rgba(238,240,244,.95), rgba(238,240,244,0) 70%),
+        radial-gradient(55% 48% at 72% 62%, rgba(226,230,238,.9), rgba(226,230,238,0) 70%),
+        radial-gradient(48% 42% at 55% 20%, rgba(214,219,229,.85), rgba(214,219,229,0) 70%); }
+      #dive-overlay.run .dv-fog.back{ animation:dvFogBack 2.5s ease-in-out both; }
+      @keyframes dvFogBack{ 0%{ opacity:0; transform:translateX(0) scale(1.06); } 22%{ opacity:.55; } 50%{ opacity:.96; } 78%{ opacity:.55; } 100%{ opacity:0; transform:translateX(-1.5%) scale(1.1); } }
+      .dv-fog.mid{ top:-16%; bottom:-16%; width:96vw; }
+      .dv-fog.mid.m1{ left:-30vw; background:radial-gradient(closest-side, rgba(240,242,246,.95), rgba(240,242,246,0) 72%); }
+      .dv-fog.mid.m2{ right:-30vw; background:radial-gradient(closest-side, rgba(233,236,242,.95), rgba(233,236,242,0) 72%); }
+      #dive-overlay.run .dv-fog.mid.m1{ animation:dvFogMidL 2.5s ease-in-out both; }
+      #dive-overlay.run .dv-fog.mid.m2{ animation:dvFogMidR 2.5s ease-in-out both; }
+      @keyframes dvFogMidL{ 0%{ opacity:0; transform:translateX(6vw) scale(1); } 26%{ opacity:.7; } 50%{ opacity:.97; } 100%{ opacity:0; transform:translateX(-24vw) scale(1.18); } }
+      @keyframes dvFogMidR{ 0%{ opacity:0; transform:translateX(-6vw) scale(1); } 26%{ opacity:.7; } 50%{ opacity:.97; } 100%{ opacity:0; transform:translateX(24vw) scale(1.18); } }
+      .dv-fog.front{ left:-25vw; right:-25vw; top:34%; height:52%; filter:blur(20px);
+        background:radial-gradient(58% 90% at 50% 50%, rgba(244,245,248,.8), rgba(244,245,248,0) 70%); }
+      #dive-overlay.run .dv-fog.front{ animation:dvFogFront 2.5s ease-in-out both; }
+      @keyframes dvFogFront{ 0%{ opacity:0; transform:translateX(-16vw); } 30%{ opacity:.75; } 52%{ opacity:.85; } 100%{ opacity:0; transform:translateX(30vw); } }
+      /* 晴れ際の濃紺クロスフェード：霧が薄くなるにつれて完成後の濃紺が少しずつ透ける（フラットなグレーで止まらない） */
+      #dive-overlay .dv-reveal{ inset:0; background:linear-gradient(180deg, #0a0e1a 0, #0d1220 300px, #111830 100%); }
+      #dive-overlay.run .dv-reveal{ animation:dvReveal 2.5s ease-in-out both; }
+      @keyframes dvReveal{ 0%,46%{ opacity:0; } 66%{ opacity:.5; } 84%{ opacity:.22; } 100%{ opacity:0; } }
+      /* ボタンの沈み込み（押した感触） */
+      .logo-btn.dive-press{ animation:dvPress .45s ease both; }
+      @keyframes dvPress{ 0%{ transform:scale(1); } 35%{ transform:scale(.965) translateY(2px); } 100%{ transform:scale(.985) translateY(1px); } }
+      /* デッキ選択の出現：霧の晴れに重ねて パネル→5色タイル（約120ms差）→保存デッキ欄・次へ の順に連続して現れる */
+      #scr-color1.dive-enter .panel{ animation:dvPanel 1.15s cubic-bezier(.3,.6,.3,1) both; will-change:transform, opacity, filter; }
+      @keyframes dvPanel{ from{ opacity:0; transform:translateY(16px); filter:blur(7px); } to{ opacity:1; transform:translateY(0); filter:blur(0); } }
+      #scr-color1.dive-enter .color-btn{ animation:dvTile .65s cubic-bezier(.3,.6,.3,1) both; will-change:transform, opacity, filter; }
+      #scr-color1.dive-enter .color-btn:nth-child(1){ animation-delay:.18s; }
+      #scr-color1.dive-enter .color-btn:nth-child(2){ animation-delay:.30s; }
+      #scr-color1.dive-enter .color-btn:nth-child(3){ animation-delay:.42s; }
+      #scr-color1.dive-enter .color-btn:nth-child(4){ animation-delay:.54s; }
+      #scr-color1.dive-enter .color-btn:nth-child(5){ animation-delay:.66s; }
+      @keyframes dvTile{ from{ opacity:0; transform:translateY(12px) scale(.95); filter:blur(5px); } to{ opacity:1; transform:none; filter:blur(0); } }
+      #scr-color1.dive-enter #saved-pick-wrap, #scr-color1.dive-enter #btn-to-cpu, #scr-color1.dive-enter #btn-back0{ animation:dvFadeUp .7s ease .88s both; }
+      @keyframes dvFadeUp{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+      /* タップでスキップしたときは出現を短く切り上げる */
+      #scr-color1.dive-enter.fast .panel{ animation-duration:.4s; }
+      #scr-color1.dive-enter.fast .color-btn{ animation-duration:.35s; animation-delay:0s; }
+      #scr-color1.dive-enter.fast #saved-pick-wrap, #scr-color1.dive-enter.fast #btn-to-cpu, #scr-color1.dive-enter.fast #btn-back0{ animation-duration:.35s; animation-delay:.05s; }
+      /* 遷移後もデッキ選択画面の端にだけ残る薄い霧（タイルや文字の上には重ねない） */
+      #deck-ambient{ position:fixed; inset:0; z-index:60; pointer-events:none; overflow:hidden; opacity:0; visibility:hidden; transition:opacity 1.2s ease, visibility 0s linear 1.2s; }
+      #deck-ambient.on{ opacity:1; visibility:visible; transition:opacity 1.2s ease; }
+      #deck-ambient .amb{ position:absolute; width:70vw; height:34vh; filter:blur(30px); opacity:.13; background:radial-gradient(closest-side, rgba(235,238,244,.9), rgba(235,238,244,0) 72%); }
+      #deck-ambient .amb.a1{ left:-38vw; top:-14vh; animation:ambDrift 11s ease-in-out infinite alternate; }
+      #deck-ambient .amb.a2{ right:-38vw; top:-12vh; animation:ambDrift 13s ease-in-out infinite alternate-reverse; }
+      #deck-ambient .amb.a3{ right:-40vw; bottom:-16vh; animation:ambDrift 15s ease-in-out infinite alternate; }
+      @keyframes ambDrift{ from{ transform:translateX(0); } to{ transform:translateX(6vw); } }
+      @media (prefers-reduced-motion: reduce){ #deck-ambient .amb{ animation:none; } }
       /* タイトル画面：濃紺＋金の世界観。キービジュアルは切り取らず全体を表示し、下端を背景色へ自然にフェードさせる */
       #scr-mode{ margin:-14px -12px -40px; padding:0 12px 44px; background:linear-gradient(180deg, #070a12 0, #0d1220 340px, #131a2e 640px, #10182c 100%); color:#e9e2cf; }
       .title-hero{ position:relative; margin:0 -12px; line-height:0; background:#070a12; }
@@ -5670,6 +5734,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         document.querySelectorAll(".screen").forEach(function(el){ el.classList.remove("on"); });
         $(id).classList.add("on");
         document.body.classList.toggle("in-battle", id === "scr-battle");
+        const amb = $("deck-ambient");
+        if (amb) amb.classList.toggle("on", id === "scr-color1" && !reducedMotion());
         window.scrollTo(0,0);
       }
 
@@ -5802,44 +5868,52 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         renderBuilder();
         show("scr-build");
       }
-      /* ダイブ演出：ボタンの中心から金のリングと光が膨らみ、画面が中心へ吸い込まれるように
-         ズームして光に満ちてから色選択画面へ。約2秒。タップでスキップできる。
-         使うのはタイトル→色選択の入口だけ（他の画面遷移には広げない）。 */
-      let diveTimer = null, diveFinished = true;
-      function finishDive(go){
-        if (diveFinished) return;
-        diveFinished = true;
-        if (diveTimer){ clearTimeout(diveTimer); diveTimer = null; }
-        const ov = $("dive-overlay"), wrap = document.querySelector(".wrap");
-        go();
-        wrap.classList.remove("diving");
-        ov.classList.add("out");
-        setTimeout(function(){ ov.classList.remove("on", "go", "out"); ov.onclick = null; }, 500);
+      /* ダイブ演出：タイトル→デッキ選択の入口だけ。合計2.5秒・1本の連続アニメーション。
+         ボタンがわずかに沈み、画面が自然に暗転し、離れた4か所から墨が不規則に滲んで合流、
+         奥行きと速度の違う霧の層が全体を覆う。一番濃い約1.25秒の時点で裏側の画面を切り替え、
+         霧が晴れるにつれて濃紺が透け、パネル→5色タイル（約120ms差）→保存デッキ欄・次への順に現れる。
+         タップでスキップ可。動きを減らす設定では即時遷移する。 */
+      let diveTimers = [], diveFinished = true, diveSwitched = false;
+      function diveCleanup(){
+        diveTimers.forEach(clearTimeout); diveTimers = [];
+        const ov = $("dive-overlay"), btn = $("btn-mode-cpu");
+        if (btn) btn.classList.remove("dive-press");
+        if (ov){ ov.classList.remove("on", "run", "out"); ov.onclick = null; }
       }
       function startDiveTransition(go){
-        if (reducedMotion()){ go(); return; }
-        const btn = $("btn-mode-cpu"), ov = $("dive-overlay"), wrap = document.querySelector(".wrap");
-        if (!btn || !ov || !wrap){ go(); return; }
-        const r = btn.getBoundingClientRect();
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        ov.style.setProperty("--dx", cx + "px");
-        ov.style.setProperty("--dy", cy + "px");
-        const wr = wrap.getBoundingClientRect();
-        wrap.style.setProperty("--dx", (cx - wr.left) + "px");
-        wrap.style.setProperty("--dy", (cy - wr.top) + "px");
-        diveFinished = false;
+        if (reducedMotion()){ go(false); return; }
+        const btn = $("btn-mode-cpu"), ov = $("dive-overlay");
+        if (!btn || !ov){ go(false); return; }
+        diveCleanup();
+        diveFinished = false; diveSwitched = false;
+        btn.classList.add("dive-press");
         ov.classList.add("on");
-        requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add("go"); wrap.classList.add("diving"); }); });
-        diveTimer = setTimeout(function(){ finishDive(go); }, 1620);
-        ov.onclick = function(){ finishDive(go); };
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ if (!diveFinished) ov.classList.add("run"); }); });
+        /* 約1.25秒：霧が一番濃い瞬間に裏で画面を切り替える（素の画面は見えない） */
+        diveTimers.push(setTimeout(function(){ if (!diveSwitched){ diveSwitched = true; go(false); } }, 1250));
+        /* 2.5秒：全層が消え切ったところでオーバーレイを外す（見た目は変わらない） */
+        diveTimers.push(setTimeout(function(){ diveFinished = true; diveCleanup(); }, 2580));
+        ov.onclick = function(){
+          if (diveFinished) return;
+          if (!diveSwitched){ diveSwitched = true; go(true); }
+          diveFinished = true;
+          diveTimers.forEach(clearTimeout); diveTimers = [];
+          if (btn) btn.classList.remove("dive-press");
+          ov.classList.add("out");
+          setTimeout(diveCleanup, 420);
+        };
       }
       $("btn-mode-cpu").addEventListener("click", function(){
         S.gameMode = "cpu"; S.savedDecks = { P: null, C: null };
         S.buildCtx = "battle"; S.useSavedDeck = false;
-        startDiveTransition(function(){
+        startDiveTransition(function(skipped){
           configColor1(); show("scr-color1");
+          if (reducedMotion()) return;
           const s = $("scr-color1");
-          s.classList.remove("dive-in"); void s.offsetWidth; s.classList.add("dive-in");
+          s.classList.remove("dive-enter", "fast"); void s.offsetWidth;
+          s.classList.add("dive-enter");
+          if (skipped) s.classList.add("fast");
+          setTimeout(function(){ s.classList.remove("dive-enter", "fast"); }, skipped ? 700 : 1900);
         });
       });
       $("btn-back0").addEventListener("click", function(){ show("scr-mode"); });
@@ -10341,6 +10415,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       })();
     </script>
     <!-- ダイブ演出用オーバーレイ（タイトル→色選択の遷移でのみ使う） -->
-    <div id="dive-overlay" aria-hidden="true"><div class="dive-glow"></div><div class="dive-ring"></div><div class="dive-ring r2"></div><div class="dive-flood"></div></div>
+    <div id="dive-overlay" aria-hidden="true"><div class="dv-dark"></div><div class="dv-ink i1"></div><div class="dv-ink i2"></div><div class="dv-ink i3"></div><div class="dv-ink i4"></div><div class="dv-fog back"></div><div class="dv-fog mid m1"></div><div class="dv-fog mid m2"></div><div class="dv-fog front"></div><div class="dv-reveal"></div></div>
+    <!-- デッキ選択画面の端にだけ薄く漂い続ける霧（遷移後の余韻） -->
+    <div id="deck-ambient" aria-hidden="true"><div class="amb a1"></div><div class="amb a2"></div><div class="amb a3"></div></div>
   </body>
 </html>
