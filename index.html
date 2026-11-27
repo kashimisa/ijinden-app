@@ -373,6 +373,8 @@
       .callout.show{ animation:callout-pop 1.1s ease-out forwards; }
       .callout.big{ width:min(96vw,700px); }
       .callout.show.big{ animation:callout-pop 1.9s ease-out forwards; }
+      /* 説明文つきの効果コールアウトは読めるよう長めに出す（約2.4秒。JS側の表示時間と一致させる） */
+      .callout.show.slow{ animation:callout-pop 2.4s ease-out forwards; }
       .callout-tx{
         font-family:"Shippori Mincho B1", serif; font-weight:800; font-size:clamp(2.6rem,13vw,4.6rem);
         color:#fff; letter-spacing:.04em; line-height:1.1;
@@ -390,6 +392,7 @@
       @media (prefers-reduced-motion: reduce){
         .callout.show{ animation:callout-fade 1.1s linear forwards; }
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
+        .callout.show.slow{ animation:callout-fade 2.4s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
       /* 対戦開始イントロ（合計約3秒）：レイヤーは「土台＋霧の層×8＋ロゴ」に分ける。
@@ -570,6 +573,17 @@
          ID セレクタで指定しないと .overlay の基本ルール（z-index:50・後方定義）に潰されて
          fx モーダルの裏に開いてしまう（実際に起きた不具合） */
       #overlay-grave{ z-index:90; }
+      /* 対戦ログビューア：普段は閉じていて盤面には一切被らない。ヘッダーの「ログ」ボタンで開いた時だけ
+         効果選択モーダル（80）・墓地（90）より手前に出す。開いたまま効果選択など別のモーダルが
+         必要になった場面では JS 側で自動的に閉じるので、操作の邪魔にはならない */
+      #overlay-log{ z-index:95; }
+      .log-card{ text-align:left; max-width:400px; width:100%; max-height:88dvh; display:flex; flex-direction:column; }
+      .log-card h2{ font-size:1.05rem; margin:0 0 4px; text-align:left; }
+      .log-card p{ color:var(--ink2); font-size:.78rem; margin:0; }
+      .log-list{ overflow-y:auto; display:flex; flex-direction:column; gap:5px; margin:10px 0 12px; padding-right:2px; }
+      .log-row{ background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:.8rem; line-height:1.55; overflow-wrap:anywhere; flex:none; }
+      .log-empty{ color:var(--ink2); font-size:.85rem; padding:12px 0 4px; text-align:center; }
+      #scr-battle .cpu-ticker{ cursor:pointer; }
       /* 効果選択モーダル内の「墓地を見る」ボタン行（判断前に両陣営の墓地を確認できる） */
       .fx-grave-row{ display:flex; gap:8px; margin-top:12px; }
       .fx-grave-btn{
@@ -753,7 +767,8 @@
         display:flex; flex-direction:column; gap:2px;
         height:calc(100vh - 12px); height:calc(100dvh - 12px);
       }
-      #scr-battle .b-head{ margin-bottom:0; flex:none; }
+      #scr-battle .b-head{ margin-bottom:0; flex:none; justify-content:flex-start; }
+      #scr-battle .b-head .turn-label{ margin-right:auto; } /* ログ／投了ボタンは右端にまとめる */
       #scr-battle .b-head .turn-label{ font-size:.8rem; }
       #scr-battle .b-head .ghost-btn{
         width:auto; margin:0; padding:3px 11px; min-height:1.75rem;
@@ -998,7 +1013,7 @@
          色選択×2・デッキ構築・各種モーダルの範囲だけ CSS変数を濃色に差し替え、
          中の部品は既存ルールのまま濃色で描く（骨格・機能は不変） */
       #scr-color1, #scr-color2, #scr-build, #scr-gundan,
-      #overlay-first, #overlay-result, #overlay-grave, #overlay-fx, #overlay-zoom, #overlay-handoff, #overlay-name, #overlay-deckcode, #overlay-deckimport{
+      #overlay-first, #overlay-result, #overlay-grave, #overlay-log, #overlay-fx, #overlay-zoom, #overlay-handoff, #overlay-name, #overlay-deckcode, #overlay-deckimport{
         --bg:#0d1220; --bg2:#0a0e18; --panel:#1c2438; --panel2:#141a2c;
         --ink:#ece5d0; --ink2:#a9b2c9; --line:rgba(199,164,90,.42);
         --accent:#b07fe0; --gold:#d9ab3c; --danger:#e0565f; --good:#5cb87a;
@@ -1018,7 +1033,7 @@
         box-shadow:0 10px 26px rgba(0,0,0,.4);
       }
       /* モーダルのカードにも金の細枠を付けて世界観を揃える */
-      #overlay-first .result-card, #overlay-result .result-card, #overlay-grave .result-card,
+      #overlay-first .result-card, #overlay-result .result-card, #overlay-grave .result-card, #overlay-log .result-card,
       #overlay-fx .result-card, #overlay-handoff .result-card, #overlay-zoom .zoom-card, #overlay-name .result-card, #overlay-deckcode .result-card, #overlay-deckimport .result-card{
         border:1px solid rgba(199,164,90,.5);
       }
@@ -1442,6 +1457,7 @@
         <div class="b-head">
           <span class="turn-label" id="turn-label">対戦開始</span>
           <span class="net-pill" id="net-pill" style="display:none;">接続中</span>
+          <button class="ghost-btn" id="btn-log">ログ</button>
           <button class="ghost-btn" id="btn-surrender">投了する</button>
         </div>
 
@@ -1624,6 +1640,16 @@
         <p>墓地は公開情報だ。一番上が最新に置かれたカード。</p>
         <div class="grave-list" id="grave-list"></div>
         <button class="big-btn accent" id="btn-grave-close">閉じる</button>
+      </div>
+    </div>
+
+    <!-- battle log viewer（普段は閉じていて盤面に被らない。相手の動き・効果の経過を後から読める） -->
+    <div class="overlay log-overlay" id="overlay-log">
+      <div class="result-card log-card">
+        <h2>対戦ログ</h2>
+        <p>対戦の経過（上が古く、下が新しい）。</p>
+        <div class="log-list" id="log-list"></div>
+        <button class="big-btn accent" id="btn-log-close">閉じる</button>
       </div>
     </div>
 
@@ -7120,12 +7146,42 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
 
       function log(msg, cls){
         S.G.log.push({ msg: msg, cls: cls || "" });
-        if (S.G.log.length > 60) S.G.log.shift();
+        if (S.G.log.length > 200) S.G.log.shift(); // 1試合分をまるごと読み返せるよう多めに保持する
         renderLog();
         maybeFxCallout(msg); // 効果発動のログなら「効果発動！＋説明」コールアウトも出す
       }
       function renderLog(){
-        // ログ表示UIは廃止（対戦の経過は演出とカードの状態変化で伝える）。記録だけ内部に残す。
+        // ログパネルが開いている時だけ一覧を描き直す（閉じている間は記録だけ内部に残す）
+        const ov = $("overlay-log");
+        if (ov && ov.classList.contains("on")) fillLogList();
+      }
+      /* ---- 対戦ログビューア ----
+         普段は閉じていて盤面に被らない。ヘッダーの「ログ」ボタン（CPU戦ではティッカーも）で開き、
+         相手が何をして何が起きたかを後から読み返せる。開いたまま効果選択などのモーダルが
+         必要になったら、そちらを優先して自動で閉じる（fxShow / showGraveViewer / endGame 側で closeLog を呼ぶ） */
+      function fillLogList(){
+        const list = $("log-list"); if (!list || !S.G) return;
+        list.innerHTML = "";
+        if (!S.G.log.length){
+          list.innerHTML = '<div class="log-empty">まだ記録がない。</div>';
+          return;
+        }
+        S.G.log.forEach(function(en){
+          const row = document.createElement("div");
+          row.className = "log-row" + (en.cls ? " lg-" + en.cls : "");
+          row.textContent = en.msg;
+          list.appendChild(row);
+        });
+        list.scrollTop = list.scrollHeight; // 最新（いちばん下）が見える位置で開く
+      }
+      function openLog(){
+        if (!S.G) return;
+        fillLogList();
+        $("overlay-log").classList.add("on");
+      }
+      function closeLog(){
+        const ov = $("overlay-log");
+        if (ov) ov.classList.remove("on");
       }
       /* ---- CPU行動ティッカー（CPU戦のみ・最新1件だけを細い1行で表示） ---- */
       function setTicker(t){
@@ -7168,10 +7224,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (fxOv && fxOv.classList.contains("on")) return; // 効果の選択モーダルが開いている間は、その裏で出さない
         if (!/(「[^」]{1,24}」の(能力|効果|遺業)|^「[^」]{1,24}」[：！]|マホウ「[^」]{1,24}」を使った|^遺業【)/.test(msg)) return;
         const now = Date.now();
-        if (now - FXANN.at < 1600) return;    // 効果が連続しても表示は1つずつ（コールアウトの表示は約1.15秒）
+        if (now - FXANN.at < 2700) return;    // 効果が連続しても表示は1つずつ（効果コールアウトの表示は約2.4秒。間引かれた分は対戦ログで読み返せる）
         if (now - FXANN.anyAt < 750) return;  // 直前に別のコールアウト（攻撃・ドロー・タマル王の明示表示等）があったら潰さない
         let sub = msg.replace(/。$/, "");
-        if (sub.length > 42) sub = sub.slice(0, 42) + "…";
+        if (sub.length > 56) sub = sub.slice(0, 56) + "…"; // 表示が長くなったぶん、説明も少し長く載せる
         if (!sub || sub === FXANN.last) return;
         FXANN.at = now; FXANN.last = sub;
         showCallout("kouka", sub);
@@ -7187,13 +7243,18 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         im.classList.remove("hidden");
         tx.textContent = "";
         sb.textContent = sub || "";
+        // 説明文（sub）つきの効果系コールアウトは、読めるよう通常（約1.15秒）より長く出す（約2.4秒）。
+        // 表示時間と CSS の .slow アニメーション（2.4秒）は揃えてある
+        const fxSlow = !(opts && opts.dur) && !!sub && (kind === "kouka" || kind === "fukugen" || kind === "meifu" || sub.length >= 16);
+        const coDur = (opts && opts.dur) || (fxSlow ? 2400 : 1150);
         el.classList.toggle("big", !!(opts && opts.big)); // opts.big: 対戦開始ロゴなど、通常より大きく長く出す
+        el.classList.toggle("slow", fxSlow);
         el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
         // オンライン対戦：コールアウトはイベントとして記録し、次の状態スナップショットと一緒にゲストへ送る（ゲスト側で順番に再演する）
         if (S.gameMode === "online" && NET.isHost()){ netRec({ k: "callout", kind: kind, sub: sub || "" }); NET.queueState(); }
         if (calloutTimer) clearTimeout(calloutTimer);
         if (calloutChainTimer) clearTimeout(calloutChainTimer);
-        calloutTimer = setTimeout(function(){ el.classList.remove("show"); }, (opts && opts.dur) || 1150);
+        calloutTimer = setTimeout(function(){ el.classList.remove("show"); }, coDur);
         // opts.next: 続けて別のコールアウトへ短く切り替える（攻撃→即応→ダブルプレッシャーのような多段チェーンも可）
         if (opts && opts.next){
           const nx = opts.next;
@@ -7655,6 +7716,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       /* ---- 墓地ビューア（墓地は公開情報：両陣営とも全内容を見られる） ---- */
       function showGraveViewer(sideKey, fromFx){
         const G = S.G; if (!G || G.over) return;
+        closeLog(); // 墓地ビューア（z:90）はログ（z:95）より後ろなので、先にログを閉じてから出す
         // 選択モーダル表示中は基本そちらを優先するが、モーダル内の「墓地を見る」ボタンからなら開く
         // （遺業【冥府発動】など、墓地の中身を見てから発動を決めたい場面があるため）
         if (!fromFx && $("overlay-fx").classList.contains("on")) return;
@@ -7681,6 +7743,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       $("btn-grave-close").addEventListener("click", function(){ $("overlay-grave").classList.remove("on"); });
 
+      /* ---- 対戦ログの開閉（ヘッダーのボタン／CPU行動ティッカーから開く） ---- */
+      $("btn-log").addEventListener("click", openLog);
+      $("btn-log-close").addEventListener("click", closeLog);
+      $("cpu-ticker").addEventListener("click", openLog);
+
       /* ---- 効果選択モーダルから墓地を見る ----
          選択肢を決める前に墓地（公開情報）を確認できるよう、fxモーダル内にボタンを置く。
          墓地ビューアはfxモーダルより手前に重なるので、閉じればそのまま選択に戻れる。 */
@@ -7696,7 +7763,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       $("fx-grave-foe").addEventListener("click", function(){ showGraveViewer(foeKeyOf(fxChooserKey), true); });
 
       /* ---- effect choice modal ---- */
-      function fxShow(){ $("overlay-fx").classList.add("on"); }
+      function fxShow(){ closeLog(); $("overlay-fx").classList.add("on"); } // 効果の選択が要る時はログを閉じて選択を優先する
       function fxHide(){ $("overlay-fx").classList.remove("on"); setGuardianHl(null, null); }
       // 選択肢（o.hl = {side, uid}）に対応する場のガーディアンを金枠で示す。点滅はさせない静止ハイライト
       function setGuardianHl(sideKey, uid){
@@ -9691,6 +9758,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
 
       function endGame(winner, reason){
         const G = S.G;
+        closeLog(); // 決着時はログを閉じて結果表示を優先する
         G.over = true; G.mode = "over";
         renderBattle();
         // 結果画面には書道風の勝敗イラスト文字を出す（CPU戦の敗北時のみ「敗北」、それ以外は「勝利」）
@@ -10794,15 +10862,20 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
       }
       function guestFxOne(e){
         if (e.k === "callout"){
-          const p = showCallout(e.kind, e.sub || "", { dur: 520, big: e.kind === "dive" });
-          return (p && typeof p.then === "function") ? p : wait(460); // ダイブは霧イントロの完了まで待ってから次の再演へ
+          // ゲスト側の対戦ログ：ホストのログ本文は送られてこないので、再演するコールアウトから記録する
+          const lt = e.sub || CALLOUT_TX[e.kind] || "";
+          if (lt && e.kind !== "dive") log(lt, (e.kind === "kouka" || e.kind === "fukugen" || e.kind === "meifu") ? "" : "sys");
+          // 効果の説明つきコールアウトはゲスト側でも読めるよう長めに出し、再演の間隔も空ける
+          const fxRead = (e.kind === "kouka" || e.kind === "fukugen" || e.kind === "meifu") && !!e.sub;
+          const p = showCallout(e.kind, e.sub || "", { dur: fxRead ? 1500 : 520, big: e.kind === "dive" });
+          return (p && typeof p.then === "function") ? p : wait(fxRead ? 1250 : 460); // ダイブは霧イントロの完了まで待ってから次の再演へ
         }
         if (e.k === "draw") return guestFxDraw(e.side, e.n);
-        if (e.k === "place") return guestFxPlace(e);
+        if (e.k === "place"){ if (e.name) log(whoName(e.side) + "は「" + e.name + "」を置いた。", "sys"); return guestFxPlace(e); }
         if (e.k === "attack") return guestFxAttack(e);
         if (e.k === "block") return guestFxBlock(e);
         if (e.k === "damage") return damageReaction(e.hits || []);
-        if (e.k === "grave") return guestFxGrave(e);
+        if (e.k === "grave"){ if (e.name) log("「" + e.name + "」が墓地に置かれた。", "sys"); return guestFxGrave(e); }
         return Promise.resolve();
       }
       // ドロー再演：山札の束から手札側へ裏面カードが飛ぶ（最大3枚・短縮版）
