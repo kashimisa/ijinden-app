@@ -329,64 +329,71 @@
         .callout.show.big{ animation:callout-fade 1.9s linear forwards; }
       }
       @keyframes callout-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-      /* 対戦開始イントロ：レイヤーは3つに分ける。
-         ①背景＝ロゴなしの水墨画（assets/dive_fogbg.jpg）を左右2枚に分けて敷く（継ぎ目はマスクで霞ませる）
-         ②ロゴ＝透過済みの assets/callout_dive.png を別レイヤーで中央に重ねる
-         「始める」を押したら即座に（0.15秒で）表示する。晴れる時はロゴには一切触れず（動かさない・割らない・ぼかさない）、
-         背景の水墨画だけがゆっくり左右へはけながら溶けて消え、後ろのプレイマップ（盤面）が見えてくる。
-         背景がはけ切る直前にロゴだけが静かにフェードアウトし、最後は中央に光もグローも何も残らない */
+      /* 対戦開始イントロ（合計約3秒）：レイヤーは「土台＋霧の層×6＋ロゴ」に分ける。
+         ①土台＝真っ黒な下地（.di-base）。霧が薄くなった所から盤面が透けて見えるよう、散布の途中で静かに消える
+         ②霧＝ロゴなしの水墨素材（assets/dive_fogbg.jpg）の切り抜きを6層重ねる。各層は切り抜き位置・拡大率・
+           反転・ぼかし量が違い、縁は放射マスクで霞ませるので長方形の継ぎ目やパネルは一切見えない。
+           晴れる時は層ごとに違う速さ・違う距離でふわっと左右へ流れながら薄くなっていく（奥行きのある散り方）
+         ③ロゴ＝透過済みの assets/callout_dive.png を別レイヤーで中央にクローズアップ表示。位置も形も変えず、
+           割らない・ぼかさない・動かさない。約1.2秒かけて金の光がふわっと灯って戻り、霧が散り終わる直前に消える
+         「始める」を押したら即座に表示する。終わったあと中央に光や残像は一切残らない */
       .dive-intro{
         position:fixed; inset:0; z-index:85; pointer-events:none; opacity:0; visibility:hidden; overflow:hidden;
+        background:#050506;
         transition:opacity .8s ease, visibility 0s linear .8s;
       }
-      .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .15s ease; }
-      .di-bg{ position:absolute; inset:0; opacity:1; transition:opacity 2.4s ease; background:#050506; }
-      .dive-intro.clear .di-bg{ opacity:0; }
-      /* 背景の水墨画（左右半分ずつ）：内側の絵は画面全体サイズで固定し、半分側だけ overflow で切り取る。
-         表示中は2枚が合わさって1枚絵に見える。はける時はこの半分ずつが外側へ滑りながら端から溶ける */
-      .di-half{ position:absolute; top:0; bottom:0; width:50%; overflow:hidden; opacity:0; transition:opacity .15s ease;
-        will-change:transform, opacity, filter; }
-      .di-half.left{ left:0;
-        -webkit-mask-image:linear-gradient(to right, #000 90%, transparent 100%);
-        mask-image:linear-gradient(to right, #000 90%, transparent 100%); }
-      .di-half.right{ right:0;
-        -webkit-mask-image:linear-gradient(to left, #000 90%, transparent 100%);
-        mask-image:linear-gradient(to left, #000 90%, transparent 100%); }
-      .di-half-img{ position:absolute; top:0; bottom:0; width:200%;
-        background-image:url("assets/dive_fogbg.jpg"); background-size:cover; background-position:center; }
-      .di-half.left .di-half-img{ left:0; }
-      .di-half.right .di-half-img{ right:0; }
-      .dive-intro.on .di-half{ opacity:1; }
-      .dive-intro.clear .di-half.left{ animation:diPartL 3.4s cubic-bezier(.45,.02,.25,1) forwards; }
-      .dive-intro.clear .di-half.right{ animation:diPartR 3.4s cubic-bezier(.45,.02,.25,1) forwards; }
-      @keyframes diPartL{
-        0%{ transform:translateX(0); opacity:1; filter:blur(0); }
-        55%{ opacity:1; }
-        100%{ transform:translateX(-108%); opacity:0; filter:blur(14px); }
+      .dive-intro.on{ pointer-events:auto; visibility:visible; opacity:1; transition:opacity .12s ease; }
+      .di-base{ position:absolute; inset:0; background:#050506; opacity:1; transition:opacity 1.1s ease .3s; }
+      .dive-intro.clear .di-base{ opacity:0; }
+      /* 霧の層：画面より一回り大きく敷き、縁は放射マスクで霞ませる（長方形の輪郭・継ぎ目を見せない）。
+         静止時の個性（拡大・左右反転・ぼかし）は transform / filter に、散る動きは translate プロパティに分けることで、
+         層ごとの個性を保ったまま全層で同じキーフレームを使える。散る方向・距離・速さは層ごとに変数で変える */
+      .di-fog{ position:absolute; inset:-14%; opacity:0; pointer-events:none;
+        background-image:url("assets/dive_fogbg.jpg"); background-size:cover; background-repeat:no-repeat;
+        -webkit-mask-image:radial-gradient(115% 88% at 50% 50%, #000 58%, transparent 97%);
+        mask-image:radial-gradient(115% 88% at 50% 50%, #000 58%, transparent 97%);
+        will-change:translate, opacity, filter; }
+      .dive-intro.on .di-fog{ opacity:1; }
+      .di-fog.f1{ background-position:32% 38%; transform:scale(1.28); filter:blur(5px); --drift:-34vw; --driftY:-2vh; --blur:5px; --dur:1.65s; --delay:0s; }
+      .di-fog.f2{ background-position:68% 62%; transform:scaleX(-1) scale(1.12); filter:blur(3px); --drift:30vw; --driftY:2.5vh; --blur:3px; --dur:1.55s; --delay:.05s; }
+      .di-fog.f3{ background-position:50% 26%; transform:scale(1.5); filter:blur(8px); --drift:-26vw; --driftY:1.5vh; --blur:8px; --dur:1.5s; --delay:.1s; }
+      .di-fog.f4{ background-position:22% 72%; transform:scaleX(-1) scale(1.34); filter:blur(2px); --drift:38vw; --driftY:-2vh; --blur:2px; --dur:1.6s; --delay:.08s; }
+      .di-fog.f5{ background-position:78% 22%; transform:scale(1.06); filter:blur(4px); --drift:-44vw; --driftY:3vh; --blur:4px; --dur:1.42s; --delay:.13s; }
+      .di-fog.f6{ background-position:50% 54%; transform:scale(1.2); filter:blur(1.5px); --drift:48vw; --driftY:-3vh; --blur:1.5px; --dur:1.35s; --delay:.15s; }
+      .dive-intro.clear .di-fog{ animation:diFogDrift var(--dur,1.5s) cubic-bezier(.33,0,.3,1) var(--delay,0s) forwards; }
+      @keyframes diFogDrift{
+        0%{ translate:0 0; opacity:1; filter:blur(var(--blur,3px)); }
+        55%{ opacity:.6; }
+        100%{ translate:var(--drift,40vw) var(--driftY,-2vh); opacity:0; filter:blur(calc(var(--blur,3px) + 7px)); }
       }
-      @keyframes diPartR{
-        0%{ transform:translateX(0); opacity:1; filter:blur(0); }
-        55%{ opacity:1; }
-        100%{ transform:translateX(108%); opacity:0; filter:blur(14px); }
-      }
-      /* ロゴ（別レイヤー）：位置も形も変えず、ぼかしもグローもかけない。表示は即時。
-         背景がはけ切る直前（.logo-out）に不透明度だけで静かに消える */
+      /* ロゴ（別レイヤー）：クローズアップで大きく即表示。位置・形は一切変えず、ぼかしもかけない。
+         約1.2秒かけて金の光がふわっと灯って元に戻る（光はロゴの形に沿うドロップシャドウのみで、
+         アニメーションが終われば filter は素に戻るので中央に光は残らない）。霧が散り終わる直前
+         （.logo-out）に不透明度だけで静かに消える */
       .di-logo{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%);
-        width:min(94vw, 580px); opacity:0; transition:opacity .15s ease; pointer-events:none; }
+        width:min(112vw, 720px); opacity:0; transition:opacity .12s ease; pointer-events:none; }
       .dive-intro.on .di-logo{ opacity:1; }
-      .dive-intro.logo-out .di-logo{ opacity:0; transition:opacity .55s ease; }
+      .dive-intro.on:not(.cover) .di-logo{ animation:diLogoGlow 1.2s ease-out both; }
+      @keyframes diLogoGlow{
+        0%{ filter:brightness(1); }
+        35%{ filter:brightness(1.55) drop-shadow(0 0 20px rgba(238,205,120,.85)) drop-shadow(0 0 54px rgba(238,205,120,.38)); }
+        70%{ filter:brightness(1.24) drop-shadow(0 0 10px rgba(238,205,120,.4)); }
+        100%{ filter:brightness(1); }
+      }
+      .dive-intro.logo-out .di-logo{ opacity:0; transition:opacity .5s ease; }
       /* 盤面フラッシュ防止の「先覆い」：対戦開始の処理が盤面を表示するより先に、この状態で画面を真っ黒に覆っておく。
          transitionを切って即座に不透明にし、背景とロゴはまだ出さない（playDiveIntro が cover を外した瞬間に即表示される） */
       .dive-intro.cover{ transition:none !important; opacity:1 !important; visibility:visible; }
-      .dive-intro.cover .di-bg{ transition:none !important; opacity:1 !important; }
-      .dive-intro.cover .di-half, .dive-intro.cover .di-logo{ opacity:0 !important; transition:none !important; }
+      .dive-intro.cover .di-base{ transition:none !important; opacity:1 !important; }
+      .dive-intro.cover .di-fog, .dive-intro.cover .di-logo{ opacity:0 !important; transition:none !important; animation:none !important; }
       /* 先覆い無しでイントロが始まる経路用：コンテナだけ遷移を切って即座に真っ黒で覆い、盤面を一瞬も見せない */
-      .dive-intro.snap, .dive-intro.snap .di-bg{ transition:none !important; }
+      .dive-intro.snap, .dive-intro.snap .di-base{ transition:none !important; }
       @media (prefers-reduced-motion: reduce){
-        .di-half, .di-logo{ transition:opacity .4s ease; }
-        .dive-intro.clear .di-half.left, .dive-intro.clear .di-half.right{ animation:diPartFade .5s ease forwards; }
+        .di-fog, .di-logo{ transition:opacity .4s ease; }
+        .dive-intro.on:not(.cover) .di-logo{ animation:none; }
+        .dive-intro.clear .di-fog{ animation:diFogFade .5s ease forwards; }
       }
-      @keyframes diPartFade{ from{ opacity:1; } to{ opacity:0; } }
+      @keyframes diFogFade{ from{ opacity:1; } to{ opacity:0; } }
       /* 墓地ビューア：両陣営の墓地は公開情報。パイルをタップすると中身の一覧モーダルを出す */
       .grave-pile{ cursor:pointer; }
       .pile .ptap{ font-size:.52rem; color:var(--gold); font-weight:800; letter-spacing:.06em; }
@@ -1147,13 +1154,18 @@
           <div class="callout-sub" id="callout-sub"></div>
         </div>
 
-        <!-- 対戦開始イントロ：ロゴなしの水墨背景（左右2枚に分けた .di-half）が即座に表示され、その上に透過ロゴ（.di-logo）を重ねる
-             →背景だけがゆっくり左右へはけて盤面が見える→ロゴは最後に静かに消える→ターンバナー（タップでスキップ可）。
-             ロゴは動かさない・割らない・ぼかさない。中央に光やグローを残す要素は置かない -->
+        <!-- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（.di-fog×6）が即座に表示され、
+             その上に透過ロゴ（.di-logo）をクローズアップで重ねる→ロゴが約1.2秒光る→霧の層だけが層ごとに違う速さで
+             ふわっと左右へ散って盤面が見える→ロゴは最後に静かに消える→ターンバナー（タップでスキップ可）。
+             ロゴは動かさない・割らない・ぼかさない。中央に光や残像を残す要素は置かない -->
         <div class="dive-intro" id="dive-intro" aria-hidden="true">
-          <div class="di-bg"></div>
-          <div class="di-half left" aria-hidden="true"><div class="di-half-img"></div></div>
-          <div class="di-half right" aria-hidden="true"><div class="di-half-img"></div></div>
+          <div class="di-base"></div>
+          <div class="di-fog f1" aria-hidden="true"></div>
+          <div class="di-fog f2" aria-hidden="true"></div>
+          <div class="di-fog f3" aria-hidden="true"></div>
+          <div class="di-fog f4" aria-hidden="true"></div>
+          <div class="di-fog f5" aria-hidden="true"></div>
+          <div class="di-fog f6" aria-hidden="true"></div>
           <img class="di-logo" src="assets/callout_dive.png" alt="Dive to イジンデン" />
         </div>
 
@@ -6486,9 +6498,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           calloutChainTimer = setTimeout(function(){ showCallout(nx.kind, nx.sub, { dur: nx.dur || 1150, next: nx.next || null, gap: nx.gap }); }, (opts.gap != null ? opts.gap : 700));
         }
       }
-      /* ---- 対戦開始イントロ：ロゴなしの水墨背景＋別レイヤーの透過ロゴが押した瞬間に即表示され、少し見せたあと
-         背景の水墨画だけがゆっくり左右へはけて盤面が現れる。ロゴは動かさず・割らず・ぼかさずそのまま残り、
-         背景がはけ切る直前に不透明度だけで静かに消える。終わったあと中央に光やグローは一切残らない。
+      /* ---- 対戦開始イントロ（合計約3秒）：ロゴなしの水墨素材から作った黒い霧の層（6層）と、別レイヤーの透過ロゴが
+         押した瞬間に即表示される。ロゴはクローズアップで約1.2秒かけて光ってから、そのままの姿で静かに消える
+         （動かさない・割らない・ぼかさない）。霧は1枚絵の分割ではなく層ごとに違う速さでふわっと左右へ散りながら
+         薄くなっていき（約1.8秒）、散り終わると盤面が見える。終わったあと中央に光や残像は一切残らない。
          その後 opts.next のターンバナーへつなぐ。タップでスキップ可。
          完了を待てるようPromiseを返す（オンライン対戦のゲスト再演用） ---- */
       let diveIntroTimers = [], diveIntroResolve = null, diveIntroPhase = 2;
@@ -6522,7 +6535,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
         if (diveIntroResolve){ const r0 = diveIntroResolve; diveIntroResolve = null; r0(); }
         const rm = reducedMotion();
-        const clearAt = rm ? 750 : 1900;   // 絵は即表示されるので、見せてから霧が晴れ始めるまでの保持は短めに（以前の4.2秒は長すぎた）
+        const clearAt = rm ? 350 : 1200;   // ロゴが光る約1.2秒 → その後、霧が約1.8秒かけて散る（合計約3秒）
         const done = new Promise(function(res){ diveIntroResolve = res; });
         const finish = function(){
           diveIntroTimers.forEach(clearTimeout); diveIntroTimers = [];
@@ -6534,14 +6547,14 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const toClear = function(){
           if (diveIntroPhase !== 0) return;
           diveIntroPhase = 1;
-          ov.classList.add("clear"); // 背景の水墨画だけが約3.4秒かけて左右へはけながら溶け、盤面が現れる（ロゴはそのまま）
-          // 背景がはけ切る直前に、ロゴだけを静かにフェードアウトさせる（光やグローは残さない）
-          diveIntroTimers.push(setTimeout(function(){ ov.classList.add("logo-out"); }, rm ? 60 : 2750));
-          diveIntroTimers.push(setTimeout(finish, rm ? 500 : 3500));
+          ov.classList.add("clear"); // 霧の層がそれぞれ違う速さでふわっと左右へ散りながら薄くなり、盤面が現れる（ロゴはそのまま）
+          // 霧が散り終わる直前に、ロゴだけを静かにフェードアウトさせる（光や残像は残さない）
+          diveIntroTimers.push(setTimeout(function(){ ov.classList.add("logo-out"); }, rm ? 80 : 1150));
+          diveIntroTimers.push(setTimeout(finish, rm ? 550 : 1800));
         };
         diveIntroPhase = 0;
         if (ov.classList.contains("cover")){
-          // 先覆い済み：黒い覆いから墨雲の絵へ即座に切り替える（絵のフェードは0.15秒。盤面は一切見えない）
+          // 先覆い済み：黒い覆いから霧とロゴへ即座に切り替える（表示フェードは約0.12秒。盤面は一切見えない）
           ov.classList.remove("cover");
         } else {
           // 先覆い無しの経路でも盤面を一瞬も見せない：コンテナの遷移を切って即座に真っ黒で覆ってから始める
@@ -6549,7 +6562,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           ov.classList.add("snap"); ov.classList.add("on"); void ov.offsetWidth; ov.classList.remove("snap");
         }
         diveIntroTimers.push(setTimeout(toClear, clearAt));
-        diveIntroTimers.push(setTimeout(finish, rm ? 1600 : 6200)); // 保険：必ず終わる
+        diveIntroTimers.push(setTimeout(finish, rm ? 1400 : 3600)); // 保険：必ず終わる
         ov.onclick = function(){ // タップでスキップ（霧を晴らす→即終了）
           if (diveIntroPhase === 0) toClear();
           else if (diveIntroPhase === 1) finish();
@@ -7898,7 +7911,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (first) showCallout("dive", "", { dur: 1750, big: true, next: { kind: "turnEnemy", dur: 1150 }, gap: 1600 });
         else showCallout("turnEnemy");
         renderBattle();
-        await wait(first ? 3700 : 2500); // 初ターンは霧イントロ＋ターンバナーが終わってからCPUが動き出す
+        await wait(first ? 3000 : 2500); // 初ターンは霧イントロ（合計約3秒）が終わってからCPUが動き出す
         if (C.deck.length === 0){ endGame("P", "CPUの山札が尽きた！"); return; }
         C.field.forEach(function(f){ f.sleeping = false; });
         C.guardians.forEach(function(g){ g.sleeping = false; });
@@ -9851,7 +9864,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         for (const raw of evs){
           if (!S.G || S.G.over || NET.over || !NET.started) return;
           const e = netSwapEv(raw);
-          const cap = (e.k === "callout" && e.kind === "dive") ? 5800 : 1600; // ダイブの水墨イントロだけ長めに待つ（即表示＋保持1.9秒＋背景が左右にはける3.5秒）
+          const cap = (e.k === "callout" && e.kind === "dive") ? 3300 : 1600; // ダイブの霧イントロだけ長めに待つ（合計約3秒＋余裕）
           try { await Promise.race([guestFxOne(e), wait(cap)]); } catch(err){}
         }
       }
