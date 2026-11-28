@@ -342,6 +342,10 @@
       .mini .asgn-badge{ position:absolute; top:-8px; right:-7px; background:var(--good); color:#fff; font-size:.66rem; font-weight:900; border-radius:999px; min-width:20px; height:20px; line-height:17px; text-align:center; padding:0 4px; z-index:3; border:1.5px solid #fff; box-sizing:border-box; }
       .mini.back .asgn-badge{ top:2px; right:2px; }
       .mini .eq-badge{ position:absolute; bottom:-7px; right:-6px; background:var(--gold); color:#fff; font-size:.55rem; font-weight:900; border-radius:999px; padding:2px 6px; z-index:2; }
+      /* 装備カード：魔力ゾーンではなく、装備先イジンの下端に重ねて見せる小さな実カード表示 */
+      .mini .eq-card{ position:absolute; left:50%; bottom:3px; transform:translateX(-50%); display:flex; align-items:center; gap:3px; background:rgba(24,19,8,.92); border:1.5px solid var(--gold); border-radius:999px; padding:1px 8px 1px 2px; z-index:5; white-space:nowrap; max-width:170%; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+      .mini .eq-card img{ width:17px; height:24px; object-fit:cover; border-radius:3px; display:block; flex:none; }
+      .mini .eq-card-name{ font-size:.54rem; font-weight:900; color:#ffe9a8; letter-spacing:.02em; overflow:hidden; text-overflow:ellipsis; }
       .mini.standable{ box-shadow:0 0 0 2.5px var(--gold); cursor:pointer; }
       /* 点滅・パルス禁止：対戦画面のハイライトは静止した枠線・色付けだけ（光ったり消えたりしない） */
       #scr-battle .mini, #scr-battle .hand-card, #scr-battle .side-box{ animation:none !important; transition:none !important; }
@@ -2012,7 +2016,7 @@
         const c = CARD[f.name]; let tr = (c && c.trait) || "";
         const G = S.G; if (!G) return tr;
         const side = G[sideKey];
-        if (f.equipUid){ const eq = side.maryoku.find(function(m){ return m.uid === f.equipUid; }); if (eq && eq.name === "髭切") tr = "剣術"; }
+        if (f.equipName === "髭切") tr = "剣術"; // 髭切装備：特性「剣術」を得る（装備カードは戦場のイジン側にある）
         if (f.name === "近藤勇" && !side.guardians.length) tr = "剣術"; // 近藤勇：ガーディアンがいない間「特性：剣術」を得る
         if (!tr && side.field.some(function(x){ return x.name === "ヨハン・ゼバスティアン・バッハ" && !x.faceDown; })) tr = "音楽"; // バッハ：自分の戦場のイジンとハイケイは「音楽」を得る
         if (!tr){
@@ -3277,9 +3281,8 @@ renderBattle();
             const cands = [];
             ["P","C"].forEach(function(k2){
               G[k2].haikei.forEach(function(h){ cands.push({ zone: "haikei", k: k2, inst: h, label: "「" + h.name + "」", sub: whoName(k2) + "のハイケイ Lv" + CARD[h.name].level, score: function(){ return k2 === k ? 0 : 10 + CARD[h.name].level; } }); });
-              G[k2].maryoku.forEach(function(m){
-                const equipped = G[k2].field.some(function(f){ return f.equipUid === m.uid; });
-                if (equipped) cands.push({ zone: "maryoku", k: k2, inst: m, label: "「" + m.name + "」（装備中）", sub: whoName(k2) + "の魔力ゾーン", score: function(){ return k2 === k ? 0 : 5; } });
+              G[k2].field.forEach(function(f){
+                if (f.equipUid) cands.push({ zone: "equip", k: k2, inst: { uid: f.equipUid, name: f.equipName }, label: "「" + f.equipName + "」（装備中）", sub: whoName(k2) + "の戦場", score: function(){ return k2 === k ? 0 : 5; } });
               });
             });
             if (!cands.length){ log("「カーバナイズ」：対象のハイケイ／装備カードがなかった。"); return; }
@@ -3287,7 +3290,7 @@ renderBattle();
             if (!pick) return;
             const os = G[pick.k];
             if (pick.zone === "haikei") os.haikei = os.haikei.filter(function(h){ return h.uid !== pick.inst.uid; });
-            else { os.maryoku = os.maryoku.filter(function(m){ return m.uid !== pick.inst.uid; }); unequipBlade(pick.k, pick.inst.uid); }
+            else detachEquipCard(pick.k, pick.inst.uid); // 装備カードは魔力ゾーンではなく戦場（イジン上）から取り除く
             os.deck.push({ uid: pick.inst.uid, name: pick.inst.name });
             log("「カーバナイズ」：「" + pick.inst.name + "」を破壊した。そのカードは山札の下に戻された。");
             showCallout("hakai");
@@ -3404,7 +3407,7 @@ renderBattle();
         if (G){
           const sd = G[sideKey];
           if (sd.field.some(function(x){ return x.name === "孔子" && !x.faceDown; })) bp += 1000; // 孔子：自分のイジンはブロック+1000
-          if (f.equipUid){ const eq = sd.maryoku.find(function(m){ return m.uid === f.equipUid; }); if (eq && eq.name === "アイスソード") bp += 2000; } // アイスソード装備：ブロック+2000
+          if (f.equipName === "アイスソード") bp += 2000; // アイスソード装備：ブロック+2000
         }
         return bp;
       }
@@ -3737,7 +3740,7 @@ const G = S.G;
 const cands = [];
 ["P","C"].forEach(function(k2){
 G[k2].haikei.forEach(function(h){ cands.push({ k: k2, kind: "haikei", inst: h, label: "「" + h.name + "」を山札の下に戻す", sub: whoName(k2) + "のハイケイ", score: function(){ return k2 === k? -1: CARD[h.name].level;}});});
-G[k2].field.forEach(function(f){ if (f.equipUid){ const eq = G[k2].maryoku.find(function(m){ return m.uid === f.equipUid;}); if (eq) cands.push({ k: k2, kind: "maryoku", inst: eq, label: "装備「" + eq.name + "」を山札の下に戻す", sub: whoName(k2) + "の魔力ゾーン", score: function(){ return 1;}});}});
+G[k2].field.forEach(function(f){ if (f.equipUid) cands.push({ k: k2, kind: "equip", inst: { uid: f.equipUid, name: f.equipName }, label: "装備「" + f.equipName + "」を山札の下に戻す", sub: whoName(k2) + "の戦場", score: function(){ return 1;}}); });
 });
 if (!cands.length) return;
 if (isHuman(k)) cands.push({ skip: true, label: "発動しない", sub: ""});
@@ -3745,10 +3748,7 @@ const pick = await fxPickOne(k, "「徳川吉宗」の能力", "戦場のハイ�
 if (!pick || pick.skip) return;
 const o = G[pick.k];
 if (pick.kind === "haikei"){ o.haikei = o.haikei.filter(function(h){ return h.uid!== pick.inst.uid;});}
-else {
-o.maryoku = o.maryoku.filter(function(m){ return m.uid!== pick.inst.uid;});
-o.field.forEach(function(f){ if (f.equipUid === pick.inst.uid) delete f.equipUid;});
-}
+else detachEquipCard(pick.k, pick.inst.uid); // 装備カードは戦場（イジン上）から取り除く
 o.deck.push({ uid: pick.inst.uid, name: pick.inst.name});
 log("「徳川吉宗」の能力：「" + pick.inst.name + "」を山札の下に戻した。");
 renderBattle();
@@ -4835,17 +4835,14 @@ renderBattle();
           else go = equipped.some(function(e){ return e.k !== k2; });
           if (!go) continue;
           const cands = equipped.map(function(e){
-            const eq = G[e.k].maryoku.find(function(m){ return m.uid === e.f.equipUid; });
-            return { k: e.k, kind: "ijin", inst: e.f, label: "「" + (eq ? eq.name : "?") + "」（「" + e.f.name + "」の装備）", sub: whoName(e.k) + "の戦場", score: function(){ return e.k === k2 ? 0 : 5; } };
+            return { k: e.k, kind: "ijin", inst: e.f, label: "「" + (e.f.equipName || "?") + "」（「" + e.f.name + "」の装備）", sub: whoName(e.k) + "の戦場", score: function(){ return e.k === k2 ? 0 : 5; } };
           });
           const pick = await fxPickOne(k2, "「エドモンド・カートライト」の能力", "手札に戻す装備カードを選ぶ。", cands);
           if (pick){
             const owner = G[pick.k];
-            const eqM = owner.maryoku.find(function(m){ return m.uid === pick.inst.equipUid; });
+            const eqM = detachEquipCard(pick.k, pick.inst.equipUid);
             if (eqM){
-              owner.maryoku = owner.maryoku.filter(function(m){ return m.uid !== eqM.uid; });
               owner.hand.push({ uid: eqM.uid, name: eqM.name });
-              pick.inst.equipUid = null;
               log("「エドモンド・カートライト」の能力：「" + eqM.name + "」を所有者の手札に戻し、" + whoName(k2) + "は1ドローした。");
               await drawCards(k2, 1);
               renderBattle();
@@ -4862,10 +4859,9 @@ renderBattle();
           if (d.kind !== "ijin" || blocked) continue;
           if (!d.inst.equipUid) continue;
           const owner = G[d.sideKey];
-          const eq = owner.maryoku.find(function(m){ return m.uid === d.inst.equipUid; });
-          if (!eq || eq.name !== "羅針盤") continue;
+          if (d.inst.equipName !== "羅針盤") continue;
           if (!owner.grave.some(function(g){ return g.uid === d.inst.uid; })) continue;
-          const costs = owner.maryoku.filter(function(m){ return m.uid !== eq.uid; });
+          const costs = owner.maryoku.slice(); // 装備中の羅針盤自身は魔力ゾーンに無いので、ゾーンのカードすべてがコスト候補
           if (!costs.length) continue;
           let use = false;
           if (isHuman(d.sideKey)){ const p = await fxChoose("「羅針盤」の能力", "装備している「" + d.inst.name + "」が破壊される。自分の魔力ゾーンのマリョク1つを墓地に置いて、破壊されていない状態にできる。発動する？", [{ label: "発動する" }, { label: "発動しない" }], d.sideKey); use = (p === 0); }
@@ -4880,7 +4876,7 @@ renderBattle();
           owner.maryoku = owner.maryoku.filter(function(m){ return m.uid !== cost.uid; });
           owner.grave.push({ uid: cost.uid, name: cost.name });
           owner.grave = owner.grave.filter(function(g){ return g.uid !== d.inst.uid; });
-          const ni = { uid: d.inst.uid, name: d.inst.name, sleeping: d.inst.sleeping, summonedTurn: d.inst.summonedTurn, equipUid: d.inst.equipUid };
+          const ni = { uid: d.inst.uid, name: d.inst.name, sleeping: d.inst.sleeping, summonedTurn: d.inst.summonedTurn, equipUid: d.inst.equipUid, equipName: d.inst.equipName };
           owner.field.push(ni);
           destroyed.splice(destroyed.indexOf(d), 1);
           log("「羅針盤」の能力：「" + d.inst.name + "」は破壊されていない状態になった！");
@@ -8163,7 +8159,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           deck: deck, hand: hand, guardians: guardians,
           field: [],        // {uid,name,sleeping,summonedTurn}
           haikei: [],       // {uid,name}
-          maryoku: [],      // {uid,name,faceUp}
+          maryoku: [],      // {uid,name,faceUp} ※装備中のカードはここに含めない（戦場のイジン側に移っている）
+          equipped: [],     // 装備中のカード {uid,name,ownerUid}：魔力ゾーンには無く、装備先イジンに重なっている
           grave: [],
           maryokuRights: 0, summonRights: 0,
           nagayaAtStart: 0, nagayaResolvedSeq: -1,
@@ -8498,7 +8495,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           levelSum += 2;
         }
         // 万葉集：装備しているイジンがいる間、自分の魔力ゾーンの合計レベル+2
-        if (side.field && side.field.some(function(f){ return f.equipUid && side.maryoku.some(function(m){ return m.uid === f.equipUid && m.name === "万葉集"; }); })){
+        if (side.field && side.field.some(function(f){ return f.equipName === "万葉集"; })){
           levelSum += 2;
         }
         // 壱与：自分の魔力ゾーンの裏のカード1つにつき、魔力レベル+1
@@ -8594,13 +8591,11 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           const foe = G[foeKeyOf(sideKey)];
           p += 2000 * foe.grave.filter(function(g){ return CARD[g.name] && CARD[g.name].type === "I"; }).length;
         }
-        if (f.equipUid){
+        if (f.equipName === "ブラックブレイド"){
           const side = G[sideKey];
-          const eqB = side.maryoku.find(function(m){ return m.uid === f.equipUid; });
-          if (eqB && eqB.name === "ブラックブレイド"){
-            // 装備：自分の魔力ゾーンのマリョク1つにつき+500。公式Q&Aの解釈では「裏のマリョクは数えない。表のマリョクだけを数える」ため、表向きのマリョクカードだけを数える（手札の枚数は無関係）
-            p += 500 * side.maryoku.filter(function(m){ return m.faceUp && CARD[m.name] && isMaryokuCard(CARD[m.name]); }).length;
-          }
+          // 装備：自分の魔力ゾーンのマリョク1つにつき+500。装備中のブレイド自身は戦場に移っていて魔力ゾーンに無いので数に入らない。
+          // 公式Q&Aの解釈では「裏のマリョクは数えない。表のマリョクだけを数える」ため、ゾーンに残っている表向きのマリョクカードだけを数える
+          p += 500 * side.maryoku.filter(function(m){ return m.faceUp && CARD[m.name] && isMaryokuCard(CARD[m.name]); }).length;
         }
         // ---- 赤カードの常時効果 ----
         {
@@ -8612,11 +8607,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             if (sd.field.some(function(x){ return x.name === "直江兼続"; }) && effTrait(sideKey, f) === "剣術") atkPlus += 2000;
             if (sd.field.some(function(x){ return x.name === "ジョージ・アームストロング・カスター"; }) && (hasKeyword(f.name, "即応") || f.tempSokkou)) atkPlus += 1000;
             p += atkPlus;
-            if (f.equipUid){
-              const eq = sd.maryoku.find(function(m){ return m.uid === f.equipUid; });
-              if (eq && eq.name === "ファイアソード") p += 2000;
-              if (eq && eq.name === "髭切") p += 1000;
-            }
+            if (f.equipName === "ファイアソード") p += 2000;
+            if (f.equipName === "髭切") p += 1000;
           }
           if (sd.field.some(function(x){ return x.name === "北条政子"; }) && effTrait(sideKey, f) === "剣術") p += 1000;
           if (haikeiActive(sd, "連なる天守閣") && !haikeiDisabled(sideKey)) p += 1000;
@@ -8660,10 +8652,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (f.name === "董仲舒" && G.turn === sideKey) p += 2000 * (sd.maryokuRights || 0); // 自分のターンの間、マリョク配置権1つにつき自分のイジンすべて+2000
           if (sd.drewByMz && sd.field.some(function(x){ return x.name === "太田道灌" && !x.faceDown; })) p += 1000; // 太田道灌【躍進】：魔力ゾーンの能力で引いたターン、自分のイジンすべて+1000
           if (haikeiActive(sd, "毘盧遮那仏像") && !haikeiDisabled(sideKey)) p += 1000; // 毘盧遮那仏像：自分のイジンすべて+1000
-          if (f.equipUid){
-            const eq = sd.maryoku.find(function(m){ return m.uid === f.equipUid; });
-            if (eq && eq.name === "ウッドスタッフ") p += 1000; // ウッドスタッフ装備：パワー+1000
-          }
+          if (f.equipName === "ウッドスタッフ") p += 1000; // ウッドスタッフ装備：パワー+1000
         }
         return p;
       }
@@ -8677,12 +8666,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           graveN = G[foeKeyOf(sideKey)].grave.filter(function(g){ return CARD[g.name] && CARD[g.name].type === "I"; }).length;
           graveBonus = 2000 * graveN;
         }
-        if (G && f.equipUid){
+        if (G && f.equipName === "ブラックブレイド"){
           const side = G[sideKey];
-          const eqB2 = side.maryoku.find(function(m){ return m.uid === f.equipUid; });
-          if (eqB2 && eqB2.name === "ブラックブレイド"){
-            bladeBonus = 500 * side.maryoku.filter(function(m){ return m.faceUp && CARD[m.name] && isMaryokuCard(CARD[m.name]); }).length;
-          }
+          // 装備中のブレイド自身は魔力ゾーンに無いので数えない（ゾーンに残る表向きマリョクだけ）
+          bladeBonus = 500 * side.maryoku.filter(function(m){ return m.faceUp && CARD[m.name] && isMaryokuCard(CARD[m.name]); }).length;
         }
         return { total: base + graveBonus + bladeBonus, base: base, graveN: graveN, graveBonus: graveBonus, bladeBonus: bladeBonus };
       }
@@ -8817,7 +8804,45 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         return out;
       }
       function unequipBlade(sideKey, bladeUid){
-        S.G[sideKey].field.forEach(function(f){ if (f.equipUid === bladeUid) delete f.equipUid; });
+        S.G[sideKey].field.forEach(function(f){ if (f.equipUid === bladeUid){ delete f.equipUid; delete f.equipName; } });
+      }
+      /* ---- 装備（公式ルール準拠） ----
+         装備したカードは魔力ゾーンから戦場へ移動し、イジンに重ねて置かれる。装備中は
+         「装備：〜」以外の特性（色・レベル・マリョクであること）を失うため、魔力ゾーンの
+         一覧・レベル合計・色条件・マホウのコスト・ゾーン対象効果のいずれにも数えない。
+         実装：カード実体は side.maryoku から取り除き、side.equipped（装備レジストリ）と
+         イジン側の equipUid / equipName で保持する。イジンが戦場を離れたら表向きで
+         魔力ゾーンへ戻る（墓地には行かない）。付け替えは不可。 */
+      // 装備レジストリからカードを取り除き、表向きで魔力ゾーンへ戻す（イジンが戦場を離れたとき用）
+      function returnEquipToZone(sideKey, equipUid){
+        const side = S.G[sideKey]; if (!side) return null;
+        const reg = (side.equipped || []).find(function(e){ return e.uid === equipUid; });
+        let name = reg ? reg.name : null;
+        side.field.forEach(function(f){ if (f.equipUid === equipUid){ name = name || f.equipName; delete f.equipUid; delete f.equipName; } });
+        side.equipped = (side.equipped || []).filter(function(e){ return e.uid !== equipUid; });
+        if (name && !side.maryoku.some(function(m){ return m.uid === equipUid; })) side.maryoku.push({ uid: equipUid, name: name, faceUp: true });
+        return name ? { uid: equipUid, name: name } : null;
+      }
+      // 装備先イジンが既に戦場にいない装備カードを魔力ゾーンへ戻す（戦場を離れる全経路の取りこぼし防止）
+      function sweepEquips(sideKey){
+        const G = S.G; if (!G) return;
+        const side = G[sideKey]; if (!side || !side.equipped || !side.equipped.length) return;
+        side.equipped.slice().forEach(function(e){
+          if (!side.field.some(function(f){ return f.uid === e.ownerUid; })){
+            side.equipped = side.equipped.filter(function(x){ return x.uid !== e.uid; });
+            if (!side.maryoku.some(function(m){ return m.uid === e.uid; })) side.maryoku.push({ uid: e.uid, name: e.name, faceUp: true });
+            log("装備「" + e.name + "」は魔力ゾーンに戻った。", "sys");
+          }
+        });
+      }
+      // 装備カードそのものを対象にする効果用：レジストリと装備先から切り離す（カードの行き先は呼び出し側が決める）
+      function detachEquipCard(sideKey, equipUid){
+        const side = S.G[sideKey]; if (!side) return null;
+        const reg = (side.equipped || []).find(function(e){ return e.uid === equipUid; });
+        let name = reg ? reg.name : null;
+        side.field.forEach(function(f){ if (f.equipUid === equipUid){ name = name || f.equipName; delete f.equipUid; delete f.equipName; } });
+        side.equipped = (side.equipped || []).filter(function(e){ return e.uid !== equipUid; });
+        return name ? { uid: equipUid, name: name } : null;
       }
 
       /* ---- pass & play handoff ---- */
@@ -9286,6 +9311,10 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         // 青の破壊監視（羅針盤の装備救済・シャルル7世・革命の広場・カトリーヌ・アントワネット）
         await blueDestructionWatchers(destroyed);
         if (S.G.over) return;
+        // 装備の後処理：破壊されたイジン（救済されず戦場を離れたもの）の装備カードは、墓地へは行かず表向きで魔力ゾーンへ戻る
+        destroyed.slice().forEach(function(d){
+          if (d.kind === "ijin" && d.inst.equipUid) returnEquipToZone(d.sideKey, d.inst.equipUid);
+        });
         // 遺業能力（戦場→墓地のとき任意発動。ガーディアンとして破壊された場合も可）
         for (const d of destroyed.slice()){
           const ownerSide = G[d.sideKey];
@@ -10074,12 +10103,12 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         if (t.kind === "guardian" && G[t.k].grave.some(function(g){ return g.uid === t.inst.uid; })) log("墓地に置かれたガーディアンは「" + t.inst.name + "」だった。");
         renderBattle();
       }
-      // ブラックブレイド【装備】：イジン召喚時、魔力ゾーンから装備してもよい
+      // 【装備】：イジン召喚時、魔力ゾーンの表向き装備カードを装備してもよい。
+      // 装備するとカードは魔力ゾーンから戦場へ移動し、そのイジンに重ねて置かれる（公式ルール）
       async function maybeEquip(sideKey, ijin){
         const G = S.G; if (!G || G.over || abilitiesBlocked()) return;
         const side = G[sideKey];
-        const usedUids = new Set(side.field.map(function(f){ return f.equipUid; }).filter(Boolean));
-        const blades = side.maryoku.filter(function(m){ return m.faceUp && !usedUids.has(m.uid) && (m.name === "ブラックブレイド" || m.name === "ファイアソード" || m.name === "髭切" || m.name === "アイスソード" || m.name === "ウッドスタッフ" || (m.name === "羅針盤" && hasVoyage(ijin)) || (m.name === "万葉集" && hasKeyword(ijin.name, "執筆"))); });
+        const blades = side.maryoku.filter(function(m){ return m.faceUp && (m.name === "ブラックブレイド" || m.name === "ファイアソード" || m.name === "髭切" || m.name === "アイスソード" || m.name === "ウッドスタッフ" || (m.name === "羅針盤" && hasVoyage(ijin)) || (m.name === "万葉集" && hasKeyword(ijin.name, "執筆"))); });
         if (!blades.length) return;
         let blade = null;
         const equipSub = function(n){ return n === "ブラックブレイド" ? "自分の魔力ゾーンのマリョク1つにつきパワー+500" : (n === "ファイアソード" ? "アタック+2000" : (n === "アイスソード" ? "ブロック+2000" : (n === "羅針盤" ? "破壊されるとき、魔力ゾーンのマリョク1つを墓地に置いて破壊を免れる" : (n === "ウッドスタッフ" ? "パワー+1000" : (n === "万葉集" ? "自分の魔力ゾーンの合計レベル+2" : "特性：剣術 アタック+1000"))))); };
@@ -10090,8 +10119,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (pick < blades.length) blade = blades[pick];
         } else blade = blades[0]; // CPUは自動で装備
         if (blade){
-          ijin.equipUid = blade.uid;
-          log("「" + ijin.name + "」は「" + blade.name + "」を装備した！（" + equipSub(blade.name) + "）");
+          // 魔力ゾーンから取り除き、戦場のイジン側へ移す。以後このカードは魔力レベル・色条件・コスト等に数えない
+          const bi = side.maryoku.findIndex(function(m){ return m.uid === blade.uid; });
+          if (bi >= 0) side.maryoku.splice(bi, 1);
+          side.equipped = side.equipped || [];
+          side.equipped.push({ uid: blade.uid, name: blade.name, ownerUid: ijin.uid });
+          ijin.equipUid = blade.uid; ijin.equipName = blade.name;
+          log("「" + ijin.name + "」は「" + blade.name + "」を装備した！（" + equipSub(blade.name) + "）装備カードは魔力ゾーンから戦場へ移動した。");
           showCallout("soubi", "『" + blade.name + "』→『" + ijin.name + "』");
           renderBattle();
         }
@@ -11474,7 +11508,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           gzone.classList.toggle("empty", side.guardians.length === 0);
         });
         // ijin（上段：イジン専用行）
-        const ijinSig = side.field.map(function(f){ return f.uid + ":" + (f.sleeping ? 1 : 0) + ":" + effPower(sideKey, f) + ":" + (f.equipUid || 0); }).join(",")
+        const ijinSig = side.field.map(function(f){ return f.uid + ":" + (f.sleeping ? 1 : 0) + ":" + effPower(sideKey, f) + ":" + (f.equipUid || 0) + ":" + (f.equipName || ""); }).join(",")
           + "|" + G.mode + "|" + G.turn
           + "|" + (G.attackers ? G.attackers.map(function(a){ return a.uid; }).join(",") : "")
           + "|asg:" + asgnSig + "|sel:" + (G.defSelAttacker || "") + "|rp:" + ((G.resolveAlive || []).join(","))
@@ -11524,7 +11558,15 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               s2.textContent = stB.done ? "対応済" : (stB.got > 0 ? "あと" + (stB.need - stB.got) + "体" : "未対応");
               el.appendChild(s2);
             }
-            if (f.equipUid){ const s = document.createElement("span"); s.className = "eq-badge"; s.textContent = "⚔装備"; el.appendChild(s); }
+            if (f.equipUid && f.equipName){
+              // 装備カードは魔力ゾーンではなく、このイジンに重ねて表示する（公式の置き方）
+              const eqw = document.createElement("span"); eqw.className = "eq-card";
+              const eqUrl = cardImg(f.equipName);
+              if (eqUrl){ const im2 = document.createElement("img"); im2.src = eqUrl; im2.alt = ""; im2.referrerPolicy = "no-referrer"; im2.onerror = function(){ im2.style.display = "none"; }; eqw.appendChild(im2); }
+              const lb = document.createElement("span"); lb.className = "eq-card-name"; lb.textContent = "⚔" + f.equipName; eqw.appendChild(lb);
+              eqw.addEventListener("click", function(ev){ ev.stopPropagation(); showZoom(f.equipName); });
+              el.appendChild(eqw);
+            }
             izone.appendChild(el);
           });
           // イジンは重ねずに並べる：体数が多いときは幅を縮めて全員が重ならず見えるようにする（寝ているカードは回転ぶんの横幅も確保）
@@ -11556,10 +11598,9 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         });
         // maryoku（マット下段ストリップ）
         const mzSig = side.maryoku.map(function(m){
-          const eq = side.field.some(function(f){ return f.equipUid === m.uid; }) ? 1 : 0;
           const st = (G.mode === "defense" && sideKey === defKey && !m.faceUp && standEligible(sideKey, m)) ? 1 : 0;
           const hl = (G.hlUids || []).indexOf(m.uid) >= 0 ? 1 : 0;
-          return m.uid + ":" + (m.faceUp ? 1 : 0) + ":" + eq + ":" + st + ":" + hl;
+          return m.uid + ":" + (m.faceUp ? 1 : 0) + ":" + st + ":" + hl;
         }).join(",") + "|" + G.mode;
         zOnce(prefix + "-maryoku", mzSig, function(){
           const mz = $(prefix + "-maryoku");
@@ -11570,9 +11611,6 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
             const dimCls = (G.mode === "defense" && !(sideKey === defKey && !m.faceUp && standEligible(sideKey, m))) ? " def-dim" : "";
             if (m.faceUp){
               const el = miniCard({ name: m.name, cls: "maryoku" + hlCls + dimCls, zoomName: m.name }); // 表向きマリョクもタップで詳細（拡大表示）を開く
-              if (side.field.some(function(f){ return f.equipUid === m.uid; })){
-                const s = document.createElement("span"); s.className = "eq-badge"; s.textContent = "⚔装備中"; el.appendChild(s);
-              }
               mz.appendChild(el);
             } else if (G.mode === "defense" && sideKey === defKey && standEligible(sideKey, m)){
               // スタンドの実行もポップアップシートに一本化。マット上では「スタンド可」の目印だけ出す
@@ -11857,6 +11895,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         return b;
       }
       function renderBattle(){
+        if (S.G && !S.G.over){ sweepEquips("P"); sweepEquips("C"); } // 戦場を離れたイジンの装備は魔力ゾーンへ戻す
         const G = S.G; if (!G) return;
         $("cpu-dot").style.background = colorHex(S.cpuColor);
         $("my-dot").style.background = colorHex(S.playerColor);
@@ -12295,7 +12334,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         function mkSide(sd){
           return {
             deck: sd.deck, hand: sd.hand, guardians: sd.guardians,
-            field: sd.field, haikei: sd.haikei, maryoku: sd.maryoku, grave: sd.grave,
+            field: sd.field, haikei: sd.haikei, maryoku: sd.maryoku, equipped: sd.equipped || [], grave: sd.grave,
             maryokuRights: sd.maryokuRights, summonRights: sd.summonRights,
             nagayaAtStart: 0, nagayaResolvedSeq: -1
           };
@@ -12677,7 +12716,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
               deck: sd.deck.map(function(c){ return { uid: c.uid }; }),
               hand: sd.hand.map(function(c){ return { uid: c.uid, name: c.name }; }),
               guardians: sd.guardians.map(function(g){ return { uid: g.uid, name: g.name, sleeping: !!g.sleeping }; }),
-              field: sd.field.map(cp), haikei: sd.haikei.map(cp), maryoku: sd.maryoku.map(cp), grave: sd.grave.map(cp),
+              field: sd.field.map(cp), haikei: sd.haikei.map(cp), maryoku: sd.maryoku.map(cp), equipped: (sd.equipped || []).map(cp), grave: sd.grave.map(cp),
               maryokuRights: sd.maryokuRights, summonRights: sd.summonRights
             };
           }
