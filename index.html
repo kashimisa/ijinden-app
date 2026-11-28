@@ -323,6 +323,7 @@
       .btn-battle:disabled{ opacity:.35; }
       .btn-end{ background:var(--ink); color:var(--bg); }
       .btn-end:disabled{ opacity:.35; }
+      .btn-back{ background:var(--panel2); color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--line); }
       .defense-banner{
         display:none; background:var(--danger); color:#fff; border-radius:11px; padding:10px 12px;
         font-weight:800; font-size:.85rem; line-height:1.6; margin-bottom:8px;
@@ -1607,6 +1608,7 @@
           <div class="dock-btns">
             <button class="btn-battle" id="btn-battle">⚔ バトルする</button>
             <button class="btn-end" id="btn-end-turn">ターン終了</button>
+            <button class="btn-back hidden" id="btn-battle-back">もどる</button>
           </div>
         </div>
       </section>
@@ -11802,6 +11804,7 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
         const canBattle = (myTurnMain && !G.battleUsed && hasAttacker) || G.mode === "attackSelect";
         $("btn-battle").disabled = !canBattle;
         $("btn-battle").textContent = G.mode === "attackSelect" ? "攻撃を宣言する（"+(G.attackers.length + (G.arenaSel || []).length)+"体）" : "⚔ バトルする";
+        $("btn-battle-back").classList.toggle("hidden", G.mode !== "attackSelect");
         // defense banner
         const def = $("defense-banner");
         def.classList.toggle("on", G.mode === "defense");
@@ -11908,6 +11911,13 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (!G.attackers.length && !(G.arenaSel || []).length){ G.mode = "main"; renderBattle(); return; }
           await playerStartBattle();
         }
+      });
+      $("btn-battle-back").addEventListener("click", function(){
+        const G = S.G; if (!G || G.mode !== "attackSelect") return;
+        if (S.gameMode === "online" && G.turn !== "P") return; // オンライン：自分のターン以外は操作できない
+        // 攻撃宣言前なのでゲーム状態は変えず、選択だけリセットしてメイン画面へ戻る（オンラインでも宣言送信は宣言ボタン押下時のみで、ここでは何も送らない）
+        G.mode = "main"; G.attackers = []; G.arenaSel = [];
+        renderBattle();
       });
       $("btn-end-turn").addEventListener("click", function(){
         const G = S.G; if (!G || !isHuman(G.turn) || G.mode !== "main") return;
