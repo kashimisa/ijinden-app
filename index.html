@@ -1277,6 +1277,47 @@
       .saved-pick-toggle .spt-title{ font-size:.98rem; font-weight:800; color:#ece5d0; line-height:1.3; }
       .saved-pick-toggle .spt-sub{ font-size:.72rem; font-weight:700; color:#a9b2c9; line-height:1.45; }
       .saved-pick-toggle .spt-arrow{ margin-left:auto; }
+
+      /* ---------- PC拡大表示（幅1024px以上の画面だけ。スマホ幅は従来どおり最大560px） ----------
+         対戦画面は高さ100dvh固定で、カード寸法はdvh連動（縦フィットは高さ側で担保）なので、
+         ここでは横幅・文字・カード寸法の上限だけを広げる。縦の1画面フィットは変えない。
+         下部固定のシート類（防御シート／アクションパネル／編成フッター）も土台幅に合わせる */
+      @media (min-width:1024px){
+        html{ font-size:17.5px; }
+        .wrap{ max-width:920px; }
+        .db-footer .dbf-in{ max-width:896px; }
+        .def-sheet{ max-width:908px; }
+        #scr-battle .action-panel{ max-width:904px; }
+        .fx-card, .log-card, .grave-card{ max-width:520px; }
+        .zoom-card{ max-width:400px; }
+        .zoom-card img{ max-width:340px; }
+        .result-card{ max-width:420px; }
+        #scr-battle{ --ijinW:clamp(46px, 9dvh, 100px); --guardW:clamp(34px, 5.7dvh, 64px); --marW:clamp(38px, 6.6dvh, 74px); }
+        #scr-battle.def-mode{ --ijinW:clamp(40px, 7.4dvh, 82px); --guardW:clamp(30px, 4.8dvh, 54px); --marW:clamp(34px, 5.4dvh, 62px); }
+        #scr-battle .side-grid{ grid-template-columns:56px 1fr 84px; }
+        #scr-battle .side-box.opp .side-grid{ grid-template-columns:84px 1fr 56px; }
+        #scr-battle .deck-stack{ width:48px; height:62px; }
+        #scr-battle .hand-card{ width:80px; }
+        #scr-battle .hand-card.has-img{ width:78px; }
+        #scr-battle .hand-zone .mini.back{ width:66px; }
+        #scr-battle.def-mode .hand-card{ width:62px; }
+        #scr-battle.def-mode .hand-card.has-img{ width:60px; }
+        .ds-card{ width:82px; }
+        .ds-card.atk{ width:92px; }
+      }
+      /* さらに広いモニターではもう一段大きく */
+      @media (min-width:1600px){
+        html{ font-size:19px; }
+        .wrap{ max-width:1140px; }
+        .db-footer .dbf-in{ max-width:1116px; }
+        .def-sheet{ max-width:1128px; }
+        #scr-battle .action-panel{ max-width:1124px; }
+        .fx-card, .log-card, .grave-card{ max-width:560px; }
+        #scr-battle{ --ijinW:clamp(46px, 9dvh, 118px); --guardW:clamp(34px, 5.7dvh, 76px); --marW:clamp(38px, 6.6dvh, 88px); }
+        #scr-battle .hand-card{ width:92px; }
+        #scr-battle .hand-card.has-img{ width:90px; }
+        #scr-battle .hand-zone .mini.back{ width:76px; }
+      }
 </style>
   </head>
   <body>
@@ -11370,7 +11411,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (side.guardians.length){
             const availG = gzone.clientWidth - 12;
             if (availG > 60){
-              const capG = Math.max(28, Math.min(48, Math.floor(window.innerHeight * ((G.mode === "defense" || G.mode === "resolvePick") ? 0.048 : 0.057))));
+              // PC（幅広画面）では上限だけ引き上げて大きく見せる。高さ連動の割合は不変なので縦フィットは保たれる
+              const capG = Math.max(28, Math.min(window.innerWidth >= 1600 ? 76 : window.innerWidth >= 1024 ? 64 : 48, Math.floor(window.innerHeight * ((G.mode === "defense" || G.mode === "resolvePick") ? 0.048 : 0.057))));
               const nG = side.guardians.length;
               let wg = Math.min(capG, Math.floor((availG + 10 * (nG - 1)) / nG));
               wg = Math.max(26, wg);
@@ -11438,7 +11480,8 @@ log("「ポプリ」の能力：" + whoName(k) + "は1ドローした。");
           if (side.field.length){
             const availW = izone.clientWidth - 12;
             if (availW > 60){
-              const capW = Math.max(38, Math.min(76, Math.floor(window.innerHeight * ((G.mode === "defense" || G.mode === "resolvePick") ? 0.074 : 0.09))));
+              // PC（幅広画面）では上限だけ引き上げて大きく見せる。高さ連動の割合は不変なので縦フィットは保たれる
+              const capW = Math.max(38, Math.min(window.innerWidth >= 1600 ? 118 : window.innerWidth >= 1024 ? 100 : 76, Math.floor(window.innerHeight * ((G.mode === "defense" || G.mode === "resolvePick") ? 0.074 : 0.09))));
               const sleepN = side.field.filter(function(f){ return f.sleeping; }).length;
               let w = Math.min(capW, Math.floor(availW / (side.field.length + 0.42 * sleepN)));
               w = Math.max(28, w);
